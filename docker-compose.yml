@@ -1,0 +1,54 @@
+services:
+  feme-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      FEME_DB_BACKEND: sqlite
+      FEME_DB_PATH: /data/memory.db
+    volumes:
+      - feme_data:/data
+
+  feme-api-postgres:
+    build: .
+    profiles: ["postgres"]
+    ports:
+      - "8001:8000"
+    environment:
+      FEME_DB_BACKEND: postgres
+      FEME_POSTGRES_DSN: postgresql://feme:feme_dev_password@postgres:5432/feme
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: feme
+      POSTGRES_USER: feme
+      POSTGRES_PASSWORD: feme_dev_password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feme -d feme"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./sql/postgres_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+
+  feme-tests-postgres:
+    build: .
+    profiles: ["test-postgres"]
+    environment:
+      FEME_DB_BACKEND: postgres
+      FEME_TEST_POSTGRES_DSN: postgresql://feme:feme_dev_password@postgres:5432/feme
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["pytest", "-q", "tests/test_v07_postgres_live_integration.py"]
+
+volumes:
+  feme_data:
+  pg_data:

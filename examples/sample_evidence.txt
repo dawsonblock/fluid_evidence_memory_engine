@@ -1,0 +1,9 @@
+Use PostgreSQL as the canonical memory database for the Fluid Evidence Memory Engine. Raw PDFs, screenshots, HTML snapshots, and JSON evidence should be stored in immutable object storage with SHA-256 hashes.
+
+The TokenTrace layer stores both character offsets and token offsets. Character offsets are authoritative because tokenizer behavior can change between models.
+
+The system should use pgvector first for simple vector search and only split to Qdrant later if vector workloads become heavy.
+
+Summaries are disposable and must not become authoritative memory. Claims must link back to exact evidence spans.
+
+If a new source contradicts an active claim, the old claim should be marked disputed or superseded rather than deleted.

@@ -1,0 +1,37 @@
+durable_save_threshold: 0.72
+session_save_threshold: 0.48
+human_review_privacy_threshold: 0.85
+explicit_override_threshold: 0.85
+near_duplicate_threshold: 0.92
+inference_review_source_quality: 0.40
+stale_after_days: 180
+salience_decay_per_run: 0.03
+minimum_active_salience: 0.12
+
+source_quality:
+  court_record: 0.95
+  official_record: 0.95
+  statute: 0.95
+  legal_xml: 0.95
+  email: 0.75
+  uploaded_pdf: 0.75
+  document: 0.75
+  log: 0.70
+  user_statement: 0.55
+  note: 0.55
+  chat: 0.55
+  ai_summary: 0.25
+  inference: 0.25
+
+sensitive_terms:
+  - health
+  - diagnosis
+  - medication
+  - religion
+  - political
+  - sexual
+  - password
+  - api key
+  - private key
+  - sin
+  - social insurance

@@ -1,0 +1,88 @@
+# Changelog
+
+## v0.6.0 - PostgreSQL Runtime Backend
+
+- Added runnable PostgreSQL backend selection through `FEME_DB_BACKEND=postgres`.
+- Added `PostgresDatabase` facade and SQL compatibility translator.
+- Rebuilt Postgres schema to mirror the current SQLite runtime tables.
+- Updated CLI/API to use backend factory.
+- Added Docker Compose Postgres API profile.
+- Added Postgres SQL smoke command and tests.
+- Validation: 23 tests passed, compile/import smoke checks run locally.
+
+
+## v0.5.0 — Runtime hardening
+
+- Added storage abstraction with `SQLiteStore`, `PostgresStore`, and explicit transaction helpers.
+- Added idempotent migration manager and v0.5 runtime schema tables.
+- Added append-only `memory_ledger` with hash-chain verification.
+- Added governed ingestion pipeline with job tracking, claim writes, contradiction scanning, cluster rebuilds, and ledger events.
+- Added deterministic claim canonicalization and `claim_clusters`.
+- Added persistent retrieval evaluation cases and project-level eval-suite runner.
+- Added runtime-health, migrate, ledger, governed-ingest, claim-cluster, and eval-suite CLI commands.
+- Added FastAPI endpoints for the v0.5 runtime layer.
+- Added v0.5 tests and smoke validation.
+
+
+## v0.4.0
+
+### Added
+
+- Source registry with project-scoped source enable/disable controls.
+- Source-quality overrides and review-required flags per source type.
+- Timeline extraction from ISO and month-name dates into `timeline_events`.
+- Citation builder that emits citation labels, quote snippets, span offsets, source titles, URIs, and hashes.
+- Grounded answer scaffold generator.
+- Memory capsules for subject-level consolidation without replacing underlying claims.
+- Duplicate relationship creation for exact-normalized duplicate claims.
+- Retention manager for local evidence redaction and project claim archiving.
+- Maintenance manager for rebuilding full-text search rows and deterministic embeddings.
+- API endpoints for sources, timeline, citations, answer scaffold, consolidation, capsules, retention, and maintenance.
+- CLI commands for sources, timeline, citations, answer scaffold, consolidation, capsules, redaction, retention history, and maintenance.
+- SQLite and PostgreSQL schema extensions for `source_registry`, `timeline_events`, `citation_records`, `memory_capsules`, and `retention_actions`.
+- Expanded v0.4 tests.
+
+### Fixed / improved
+
+- Ingestion now checks source policy before accepting a source type.
+- Ingestion now uses source-registry quality overrides when scoring chunks.
+- Ingestion now records timeline events automatically.
+- Project export includes v0.4 governance/citation/timeline/capsule/retention tables where available.
+- API and package version bumped to v0.4.0.
+
+### Validation
+
+- `pytest`: 14 passed.
+- `compileall`: passed.
+- CLI/API import smoke test: passed.
+
+### Still limited
+
+- SQLite remains the tested runtime backend.
+- PostgreSQL remains a schema target, not a completed adapter.
+- Timeline extraction is regex-based.
+- Answer generation remains intentionally conservative; the scaffold prepares grounded inputs but does not fabricate prose beyond the stored claims.
+
+## v0.3.0
+
+- Added project registry and project-scoped stats.
+- Added ingestion job records.
+- Added duplicate evidence suppression by SHA-256 per project.
+- Added sensitivity detection/redaction helpers.
+- Added review queue and review action history.
+- Added provenance tracing for claim → evidence → token span.
+- Added integrity checker and persisted integrity reports.
+- Added SQLite backup manager.
+- Added project import support.
+- Added MMR-style retrieval diversification.
+- Added context packet risk summaries.
+- Added CLI/API commands for review, trace, backup, integrity, and project stats.
+
+## v0.2.0
+
+- Added entity extraction and `entity_mentions` persistence.
+- Added exact `claim -> evidence -> token_span` links.
+- Added evidence vault module for raw file preservation.
+- Added memory policy thresholds and source-quality rules.
+- Added lifecycle manager, answer/context verifier, project exporter, and retrieval evaluation harness.
+- Fixed retrieval project isolation and package schema inclusion.

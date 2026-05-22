@@ -1,0 +1,51 @@
+name: test
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    sqlite:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+            - name: Install deps
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -e '.[dev,api,postgres]'
+            - name: Run pytest (default)
+              run: pytest -q
+
+    postgres-live:
+        runs-on: ubuntu-latest
+        services:
+            postgres:
+                image: postgres:16
+                env:
+                    POSTGRES_DB: feme
+                    POSTGRES_USER: feme
+                    POSTGRES_PASSWORD: feme_dev_password
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U feme -d feme"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 20
+        env:
+            FEME_DB_BACKEND: postgres
+            FEME_TEST_POSTGRES_DSN: postgresql://feme:feme_dev_password@localhost:5432/feme
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+            - name: Install deps
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -e '.[dev,api,postgres]'
+            - name: Run live Postgres integration tests
+              run: pytest -q tests/test_v07_postgres_live_integration.py
