@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from .claim_extractor import extract_candidates_for_evidence
@@ -33,10 +33,29 @@ from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.0")
+app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.1")
 settings = get_settings()
 database = make_database()
 database.init()
+
+
+def _auth_enabled() -> bool:
+    return bool(
+        settings.api_auth_required
+        or settings.api_key_admin
+        or settings.api_key_readonly
+    )
+
+
+def require_write_api_key(
+    x_feme_api_key: str | None = Header(default=None, alias="X-FEME-API-Key"),
+) -> None:
+    if not _auth_enabled():
+        return
+    if not x_feme_api_key:
+        raise HTTPException(status_code=401, detail="missing_api_key")
+    if not settings.api_key_admin or x_feme_api_key != settings.api_key_admin:
+        raise HTTPException(status_code=403, detail="insufficient_api_scope")
 
 
 class IngestRequest(BaseModel):
@@ -118,7 +137,7 @@ class EvalCaseRequest(BaseModel):
 def health():
     return {
         "status": "ok",
-        "version": "0.7.0",
+        "version": "0.7.1",
         "db_backend": settings.db_backend,
         "db_path": getattr(database, "path", settings.db_path),
         "runtime": runtime_health(database),
@@ -126,7 +145,7 @@ def health():
 
 
 @app.post("/ingest")
-def ingest(req: IngestRequest):
+def ingest(req: IngestRequest, _auth: None = Depends(require_write_api_key)):
     result = EvidenceIngestor(database).ingest_text(
         req.text,
         source_type=req.source_type,
@@ -193,7 +212,9 @@ def verify(req: VerifyAnswerRequest):
 
 
 @app.post("/lifecycle/decay")
-def lifecycle_decay(project_id: str = "default"):
+def lifecycle_decay(
+    project_id: str = "default", _auth: None = Depends(require_write_api_key)
+):
     return MemoryLifecycleManager(database).run_decay(project_id=project_id)
 
 
@@ -218,7 +239,11 @@ def entities(limit: int = 100):
 
 
 @app.post("/export")
-def export(project_id: str = "default", out_path: str = "feme_export.json"):
+def export(
+    project_id: str = "default",
+    out_path: str = "feme_export.json",
+    _auth: None = Depends(require_write_api_key),
+):
     return ProjectExporter(database).export_project(project_id, out_path)
 
 
@@ -238,14 +263,18 @@ def review_pending(project_id: str = "default", limit: int = 50):
 
 
 @app.post("/review/action")
-def review_action(req: ReviewActionRequest):
+def review_action(
+    req: ReviewActionRequest, _auth: None = Depends(require_write_api_key)
+):
     return ReviewQueue(database).act(
         req.claim_id, req.action, reviewer=req.reviewer, reason=req.reason
     )
 
 
 @app.post("/review/evidence")
-def review_evidence(req: ReviewEvidenceRequest):
+def review_evidence(
+    req: ReviewEvidenceRequest, _auth: None = Depends(require_write_api_key)
+):
     return ReviewQueue(database).review_evidence(
         req.evidence_id, req.action, reviewer=req.reviewer, reason=req.reason
     )
@@ -257,12 +286,16 @@ def claim_trace(claim_id: str):
 
 
 @app.post("/integrity/check")
-def integrity_check(project_id: str = "default"):
+def integrity_check(
+    project_id: str = "default", _auth: None = Depends(require_write_api_key)
+):
     return IntegrityChecker(database).run(project_id=project_id)
 
 
 @app.post("/backup")
-def backup(out_path: str = "feme_backup.sqlite"):
+def backup(
+    out_path: str = "feme_backup.sqlite", _auth: None = Depends(require_write_api_key)
+):
     return BackupManager(database).backup(out_path)
 
 
@@ -273,7 +306,7 @@ def source_list(project_id: str = "default"):
 
 
 @app.post("/sources")
-def source_set(req: SourceSetRequest):
+def source_set(req: SourceSetRequest, _auth: None = Depends(require_write_api_key)):
     return SourceRegistry(database).upsert(
         req.source_type,
         project_id=req.project_id,
@@ -284,7 +317,9 @@ def source_set(req: SourceSetRequest):
 
 
 @app.post("/timeline/rebuild")
-def timeline_rebuild(project_id: str = "default"):
+def timeline_rebuild(
+    project_id: str = "default", _auth: None = Depends(require_write_api_key)
+):
     return TimelineManager(database).rebuild_project(project_id=project_id)
 
 
@@ -294,7 +329,11 @@ def timeline(project_id: str = "default", limit: int = 100):
 
 
 @app.post("/citations")
-def citations(req: ContextRequest, persist: bool = False):
+def citations(
+    req: ContextRequest,
+    persist: bool = False,
+    _auth: None = Depends(require_write_api_key),
+):
     packet = ContextBuilder(database).build(
         req.question,
         project_id=req.project_id,
@@ -315,7 +354,9 @@ def answer_scaffold(req: ContextRequest):
 
 
 @app.post("/consolidate")
-def consolidate(project_id: str = "default"):
+def consolidate(
+    project_id: str = "default", _auth: None = Depends(require_write_api_key)
+):
     manager = MemoryConsolidator(database)
     result = manager.create_subject_capsules(project_id=project_id)
     result.update(manager.link_near_duplicate_claims(project_id=project_id))
@@ -330,7 +371,9 @@ def capsules(project_id: str = "default", limit: int = 100):
 
 
 @app.post("/retention/redact")
-def retention_redact(req: RedactEvidenceRequest):
+def retention_redact(
+    req: RedactEvidenceRequest, _auth: None = Depends(require_write_api_key)
+):
     return RetentionManager(database).redact_evidence(
         req.evidence_id, actor=req.actor, reason=req.reason
     )
@@ -342,13 +385,17 @@ def retention_history(project_id: str = "default", limit: int = 100):
 
 
 @app.post("/maintenance/rebuild-fts")
-def maintenance_rebuild_fts(project_id: str = "default"):
+def maintenance_rebuild_fts(
+    project_id: str = "default", _auth: None = Depends(require_write_api_key)
+):
     return MaintenanceManager(database).rebuild_fts(project_id=project_id)
 
 
 @app.post("/maintenance/rebuild-embeddings")
 def maintenance_rebuild_embeddings(
-    project_id: str = "default", owner_type: str = "chunk"
+    project_id: str = "default",
+    owner_type: str = "chunk",
+    _auth: None = Depends(require_write_api_key),
 ):
     return MaintenanceManager(database).rebuild_embeddings(
         project_id=project_id, owner_type=owner_type
@@ -356,12 +403,14 @@ def maintenance_rebuild_embeddings(
 
 
 @app.post("/runtime/migrate")
-def runtime_migrate():
+def runtime_migrate(_auth: None = Depends(require_write_api_key)):
     return MigrationManager(database).apply_all()
 
 
 @app.post("/ingest/governed")
-def ingest_governed(req: GovernedIngestRequest):
+def ingest_governed(
+    req: GovernedIngestRequest, _auth: None = Depends(require_write_api_key)
+):
     return TransactionalIngestionPipeline(database).ingest_text(
         req.text,
         source_type=req.source_type,
@@ -384,7 +433,11 @@ def ledger_verify():
 
 
 @app.post("/claims/clusters/rebuild")
-def claim_clusters_rebuild(project_id: str = "default", min_claims: int = 1):
+def claim_clusters_rebuild(
+    project_id: str = "default",
+    min_claims: int = 1,
+    _auth: None = Depends(require_write_api_key),
+):
     return ClaimCanonicalizer(database).rebuild_clusters(
         project_id=project_id, min_claims=min_claims
     )
@@ -398,7 +451,7 @@ def claim_clusters(project_id: str = "default", limit: int = 100):
 
 
 @app.post("/eval/cases")
-def eval_add_case(req: EvalCaseRequest):
+def eval_add_case(req: EvalCaseRequest, _auth: None = Depends(require_write_api_key)):
     return RetrievalEvalSuite(database).add_case(
         query=req.query,
         expected_claim_ids=req.expected_claim_ids,
@@ -408,5 +461,9 @@ def eval_add_case(req: EvalCaseRequest):
 
 
 @app.post("/eval/suite")
-def eval_suite(project_id: str = "default", top_k: int = 10):
+def eval_suite(
+    project_id: str = "default",
+    top_k: int = 10,
+    _auth: None = Depends(require_write_api_key),
+):
     return RetrievalEvalSuite(database).run(project_id=project_id, top_k=top_k)
