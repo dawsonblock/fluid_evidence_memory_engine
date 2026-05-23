@@ -33,7 +33,7 @@ from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="0.6.0")
+app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.0")
 settings = get_settings()
 database = make_database()
 database.init()
@@ -107,7 +107,13 @@ class EvalCaseRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.6.0", "db_backend": settings.db_backend, "db_path": getattr(database, "path", settings.db_path), "runtime": runtime_health(database)}
+    return {
+        "status": "ok",
+        "version": "0.7.0",
+        "db_backend": settings.db_backend,
+        "db_path": getattr(database, "path", settings.db_path),
+        "runtime": runtime_health(database),
+    }
 
 
 @app.post("/ingest")
@@ -128,24 +134,41 @@ def ingest(req: IngestRequest):
         for candidate in candidates:
             write = governor.commit_candidate(candidate, project_id=req.project_id)
             if write.matched_claim_id:
-                contradictions.extend(contradiction.scan_new_claim(write.matched_claim_id))
+                contradictions.extend(
+                    contradiction.scan_new_claim(write.matched_claim_id)
+                )
             claim_results.append(write.model_dump())
-    return {"evidence": result, "claim_writes": claim_results, "contradictions": contradictions}
+    return {
+        "evidence": result,
+        "claim_writes": claim_results,
+        "contradictions": contradictions,
+    }
 
 
 @app.post("/search")
 def search(req: SearchRequest):
-    return [r.model_dump() for r in RetrievalPlanner(database).search(req.query, project_id=req.project_id, top_k=req.top_k)]
+    return [
+        r.model_dump()
+        for r in RetrievalPlanner(database).search(
+            req.query, project_id=req.project_id, top_k=req.top_k
+        )
+    ]
 
 
 @app.post("/context")
 def context(req: ContextRequest):
-    return ContextBuilder(database).build(req.question, project_id=req.project_id, token_budget=req.token_budget).model_dump()
+    return (
+        ContextBuilder(database)
+        .build(req.question, project_id=req.project_id, token_budget=req.token_budget)
+        .model_dump()
+    )
 
 
 @app.post("/verify")
 def verify(req: VerifyAnswerRequest):
-    packet = ContextBuilder(database).build(req.question, project_id=req.project_id, token_budget=req.token_budget)
+    packet = ContextBuilder(database).build(
+        req.question, project_id=req.project_id, token_budget=req.token_budget
+    )
     verifier = AnswerVerifier(database)
     if req.answer_text:
         return verifier.verify_answer_text(packet, req.answer_text).model_dump()
@@ -199,7 +222,9 @@ def review_pending(project_id: str = "default", limit: int = 50):
 
 @app.post("/review/action")
 def review_action(req: ReviewActionRequest):
-    return ReviewQueue(database).act(req.claim_id, req.action, reviewer=req.reviewer, reason=req.reason)
+    return ReviewQueue(database).act(
+        req.claim_id, req.action, reviewer=req.reviewer, reason=req.reason
+    )
 
 
 @app.get("/claims/{claim_id}/trace")
@@ -246,13 +271,17 @@ def timeline(project_id: str = "default", limit: int = 100):
 
 @app.post("/citations")
 def citations(req: ContextRequest, persist: bool = False):
-    packet = ContextBuilder(database).build(req.question, project_id=req.project_id, token_budget=req.token_budget)
+    packet = ContextBuilder(database).build(
+        req.question, project_id=req.project_id, token_budget=req.token_budget
+    )
     return CitationManager(database).citations_for_context(packet, persist=persist)
 
 
 @app.post("/answer/scaffold")
 def answer_scaffold(req: ContextRequest):
-    return GroundedAnswerBuilder(database).build_scaffold(req.question, project_id=req.project_id, token_budget=req.token_budget)
+    return GroundedAnswerBuilder(database).build_scaffold(
+        req.question, project_id=req.project_id, token_budget=req.token_budget
+    )
 
 
 @app.post("/consolidate")
@@ -265,12 +294,16 @@ def consolidate(project_id: str = "default"):
 
 @app.get("/capsules")
 def capsules(project_id: str = "default", limit: int = 100):
-    return MemoryConsolidator(database).list_capsules(project_id=project_id, limit=limit)
+    return MemoryConsolidator(database).list_capsules(
+        project_id=project_id, limit=limit
+    )
 
 
 @app.post("/retention/redact")
 def retention_redact(req: RedactEvidenceRequest):
-    return RetentionManager(database).redact_evidence(req.evidence_id, actor=req.actor, reason=req.reason)
+    return RetentionManager(database).redact_evidence(
+        req.evidence_id, actor=req.actor, reason=req.reason
+    )
 
 
 @app.get("/retention/history")
@@ -284,8 +317,12 @@ def maintenance_rebuild_fts(project_id: str = "default"):
 
 
 @app.post("/maintenance/rebuild-embeddings")
-def maintenance_rebuild_embeddings(project_id: str = "default", owner_type: str = "chunk"):
-    return MaintenanceManager(database).rebuild_embeddings(project_id=project_id, owner_type=owner_type)
+def maintenance_rebuild_embeddings(
+    project_id: str = "default", owner_type: str = "chunk"
+):
+    return MaintenanceManager(database).rebuild_embeddings(
+        project_id=project_id, owner_type=owner_type
+    )
 
 
 @app.post("/runtime/migrate")
@@ -318,12 +355,16 @@ def ledger_verify():
 
 @app.post("/claims/clusters/rebuild")
 def claim_clusters_rebuild(project_id: str = "default", min_claims: int = 1):
-    return ClaimCanonicalizer(database).rebuild_clusters(project_id=project_id, min_claims=min_claims)
+    return ClaimCanonicalizer(database).rebuild_clusters(
+        project_id=project_id, min_claims=min_claims
+    )
 
 
 @app.get("/claims/clusters")
 def claim_clusters(project_id: str = "default", limit: int = 100):
-    return ClaimCanonicalizer(database).list_clusters(project_id=project_id, limit=limit)
+    return ClaimCanonicalizer(database).list_clusters(
+        project_id=project_id, limit=limit
+    )
 
 
 @app.post("/eval/cases")

@@ -54,9 +54,9 @@ Test cases should cover:
 - token-budget packing efficiency
 - project isolation
 
-## 5. Complete PostgreSQL parity and live CI
+## 5. Complete PostgreSQL parity and live proof
 
-v0.6 added a runnable PostgreSQL runtime path (`FEME_DB_BACKEND=postgres` and `FEME_POSTGRES_DSN`), but it is not production-proven yet.
+v0.7 hardening closes major adapter blockers, but production proof still requires consistently passing live PostgreSQL runs (`FEME_DB_BACKEND=postgres` and `FEME_POSTGRES_DSN`).
 
 Priority gaps to close:
 
@@ -69,7 +69,7 @@ Priority gaps to close:
 The hashing embedder is deterministic and offline, but weak. Replace with a local sentence-transformer, OpenAI embeddings, or another embedding model behind an adapter.
 
 
-## After v0.5
+## Next hardening sequence
 
 1. Port EvidenceIngestor, RetrievalPlanner, ReviewQueue, and RetentionManager onto the `MemoryStore` contract.
 2. Add real PostgreSQL integration tests using docker-compose and the postgres optional dependency.

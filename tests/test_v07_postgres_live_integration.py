@@ -99,7 +99,7 @@ def test_postgres_governed_ingest_retrieve_and_ledger_verify(
     assert int(row["n"]) >= 1
     assert int(chunk_row["n"]) >= 1
 
-    verify = MemoryLedger(postgres_db).verify_chain()
+    verify = MemoryLedger(postgres_db).verify_chain(project_id=project_id)
     assert verify["ok"] is True
 
 
@@ -196,7 +196,7 @@ def test_postgres_ledger_append_is_serialized_under_concurrency(
         ids = list(pool.map(_append, range(20)))
 
     assert len(ids) == 20
-    verify = ledger.verify_chain()
+    verify = ledger.verify_chain(project_id=project_id)
     assert verify["ok"] is True
 
 

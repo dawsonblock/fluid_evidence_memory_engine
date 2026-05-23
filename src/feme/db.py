@@ -8,7 +8,7 @@ from .utils import now_iso
 
 ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "sqlite_schema.sql"
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "sqlite_schema.sql"
-SCHEMA_VERSION = "0.6.0"
+SCHEMA_VERSION = "0.7.0"
 
 
 class Database:
@@ -22,7 +22,9 @@ class Database:
         return con
 
     def init(self) -> None:
-        schema_path = ROOT_SCHEMA_PATH if ROOT_SCHEMA_PATH.exists() else PACKAGE_SCHEMA_PATH
+        schema_path = (
+            ROOT_SCHEMA_PATH if ROOT_SCHEMA_PATH.exists() else PACKAGE_SCHEMA_PATH
+        )
         schema = schema_path.read_text(encoding="utf-8")
         with self.connect() as con:
             con.executescript(schema)
@@ -57,7 +59,9 @@ class Database:
     def schema_version(self) -> str | None:
         with self.connect() as con:
             try:
-                row = con.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()
+                row = con.execute(
+                    "SELECT value FROM schema_meta WHERE key = 'schema_version'"
+                ).fetchone()
             except sqlite3.OperationalError:
                 return None
         return row["value"] if row else None

@@ -1,3 +1,25 @@
+Metadata-Version: 2.4
+Name: fluid-evidence-memory-engine
+Version: 0.7.0
+Summary: Token-anchored claim memory with evidence links, lifecycle control, verification, review workflow, source governance, citation packets, retention, auditable retrieval, runtime storage adapters, migrations, ledger governance, and a runnable PostgreSQL backend.
+Author: Dawson Block
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.6
+Requires-Dist: typer>=0.12
+Requires-Dist: rich>=13.7
+Requires-Dist: PyYAML>=6.0
+Provides-Extra: api
+Requires-Dist: fastapi>=0.110; extra == "api"
+Requires-Dist: uvicorn>=0.27; extra == "api"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: ruff>=0.4; extra == "dev"
+Provides-Extra: postgres
+Requires-Dist: psycopg[binary]>=3.1; extra == "postgres"
+Provides-Extra: tokenizers
+Requires-Dist: tiktoken>=0.7; extra == "tokenizers"
+
 # Fluid Evidence Memory Engine
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)

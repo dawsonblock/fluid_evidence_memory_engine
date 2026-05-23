@@ -8,7 +8,7 @@ from .utils import now_iso
 
 ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "postgres_schema.sql"
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "postgres_schema.sql"
-POSTGRES_SCHEMA_VERSION = "0.6.0"
+POSTGRES_SCHEMA_VERSION = "0.7.0"
 
 
 class PostgresDependencyError(RuntimeError):
@@ -44,7 +44,9 @@ class PostgresDatabase:
         return PostgresConnection(con)
 
     def init(self) -> None:
-        schema_path = ROOT_SCHEMA_PATH if ROOT_SCHEMA_PATH.exists() else PACKAGE_SCHEMA_PATH
+        schema_path = (
+            ROOT_SCHEMA_PATH if ROOT_SCHEMA_PATH.exists() else PACKAGE_SCHEMA_PATH
+        )
         schema = schema_path.read_text(encoding="utf-8")
         with self.connect() as con:
             con.executescript(schema)
@@ -79,7 +81,9 @@ class PostgresDatabase:
     def schema_version(self) -> str | None:
         try:
             with self.connect() as con:
-                row = con.execute("SELECT value FROM schema_meta WHERE key = ?", ("schema_version",)).fetchone()
+                row = con.execute(
+                    "SELECT value FROM schema_meta WHERE key = ?", ("schema_version",)
+                ).fetchone()
             return row["value"] if row else None
         except Exception:
             return None
@@ -101,7 +105,9 @@ class PostgresConnection:
         finally:
             self._con.close()
 
-    def execute(self, sql: str, params: Iterable[Any] | None = None) -> "PostgresCursor":
+    def execute(
+        self, sql: str, params: Iterable[Any] | None = None
+    ) -> "PostgresCursor":
         rewritten = rewrite_sql_for_postgres(sql)
         if rewritten is None:
             return EmptyCursor()
@@ -132,6 +138,9 @@ class PostgresCursor:
     def __init__(self, cursor: Any):
         self._cursor = cursor
 
+    def __iter__(self):
+        return iter(self._cursor)
+
     @property
     def rowcount(self) -> int:
         return int(self._cursor.rowcount or 0)
@@ -150,6 +159,9 @@ class PostgresCursor:
 class EmptyCursor:
     rowcount = 0
     description = None
+
+    def __iter__(self):
+        return iter(())
 
     def fetchone(self) -> None:
         return None
@@ -187,6 +199,12 @@ def rewrite_sql_for_postgres(sql: str) -> str | None:
         if "ON CONFLICT" not in out.upper():
             out += " ON CONFLICT DO NOTHING"
 
+    out = re.sub(
+        r"GROUP_CONCAT\(\s*([^)]+?)\s*\)",
+        r"string_agg((\1)::text, ',')",
+        out,
+        flags=re.I,
+    )
     out = re.sub(r"\bMIN\(\s*1\.0\s*,", "LEAST(1.0,", out, flags=re.I)
     out = convert_qmark_placeholders(out)
     return out
@@ -222,12 +240,22 @@ def split_sql_script(script: str) -> list[str]:
     current: list[str] = []
     in_single = False
     in_double = False
+    dollar_tag: str | None = None
     line_comment = False
     block_comment = False
     i = 0
     while i < len(script):
         ch = script[i]
         nxt = script[i + 1] if i + 1 < len(script) else ""
+        if dollar_tag is not None:
+            if script.startswith(dollar_tag, i):
+                current.extend(dollar_tag)
+                i += len(dollar_tag)
+                dollar_tag = None
+                continue
+            current.append(ch)
+            i += 1
+            continue
         if line_comment:
             current.append(ch)
             if ch == "\n":
@@ -265,6 +293,16 @@ def split_sql_script(script: str) -> list[str]:
         elif ch == '"' and not in_single:
             current.append(ch)
             in_double = not in_double
+        elif not in_single and not in_double and ch == "$":
+            j = i + 1
+            while j < len(script) and (script[j].isalnum() or script[j] == "_"):
+                j += 1
+            if j < len(script) and script[j] == "$":
+                dollar_tag = script[i : j + 1]
+                current.extend(dollar_tag)
+                i = j + 1
+                continue
+            current.append(ch)
         elif ch == ";" and not in_single and not in_double:
             statement = "".join(current).strip()
             if statement:

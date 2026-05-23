@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.0 - PostgreSQL Proof and Runtime Hygiene
+
+- Fixed PostgreSQL SQL script splitting for PL/pgSQL dollar-quoted function bodies.
+- Fixed source registry default insertion counting to use backend-neutral cursor rowcount semantics.
+- Added regression tests for:
+	- PL/pgSQL migration splitting (`V08_POSTGRES_LEDGER_IMMUTABLE_SQL` split behavior)
+	- source registry idempotent default insertion behavior.
+- Updated package/runtime schema version markers to `0.7.0`.
+- Validation baseline updated to current suite status: `30 passed, 6 skipped` (skips are live Postgres tests when psycopg/DSN is unavailable).
+
 ## v0.6.0 - PostgreSQL Runtime Backend
 
 - Added runnable PostgreSQL backend selection through `FEME_DB_BACKEND=postgres`.

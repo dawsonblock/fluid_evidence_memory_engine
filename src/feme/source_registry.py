@@ -5,7 +5,6 @@ from contextlib import nullcontext
 from .db import Database, rows_to_dicts
 from .utils import json_dumps, new_id, now_iso
 
-
 DEFAULT_SOURCE_QUALITIES = {
     "official_record": 0.95,
     "court_record": 0.92,
@@ -29,14 +28,15 @@ class SourceRegistry:
     def __init__(self, db: Database):
         self.db = db
 
-    def ensure_defaults(self, *, project_id: str = "default", con=None, autocommit: bool = True) -> int:
+    def ensure_defaults(
+        self, *, project_id: str = "default", con=None, autocommit: bool = True
+    ) -> int:
         now = now_iso()
         inserted = 0
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
             for source_type, quality in DEFAULT_SOURCE_QUALITIES.items():
-                before = active_con.total_changes
-                active_con.execute(
+                cur = active_con.execute(
                     """
                     INSERT OR IGNORE INTO source_registry
                     (id, project_id, source_type, enabled, default_quality, review_required, created_at, updated_at, metadata_json)
@@ -54,7 +54,7 @@ class SourceRegistry:
                         "{}",
                     ),
                 )
-                if active_con.total_changes > before:
+                if int(getattr(cur, "rowcount", 0) or 0) > 0:
                     inserted += 1
             if autocommit:
                 active_con.commit()
@@ -73,8 +73,16 @@ class SourceRegistry:
         autocommit: bool = True,
     ) -> dict:
         now = now_iso()
-        default_quality = DEFAULT_SOURCE_QUALITIES.get(source_type, 0.5) if default_quality is None else float(default_quality)
-        review_required = source_type in {"ai_generated", "note"} if review_required is None else bool(review_required)
+        default_quality = (
+            DEFAULT_SOURCE_QUALITIES.get(source_type, 0.5)
+            if default_quality is None
+            else float(default_quality)
+        )
+        review_required = (
+            source_type in {"ai_generated", "note"}
+            if review_required is None
+            else bool(review_required)
+        )
         metadata = metadata or {}
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
@@ -89,7 +97,14 @@ class SourceRegistry:
                     SET enabled = ?, default_quality = ?, review_required = ?, updated_at = ?, metadata_json = ?
                     WHERE id = ?
                     """,
-                    (int(enabled), default_quality, int(review_required), now, json_dumps(metadata), existing["id"]),
+                    (
+                        int(enabled),
+                        default_quality,
+                        int(review_required),
+                        now,
+                        json_dumps(metadata),
+                        existing["id"],
+                    ),
                 )
                 source_id = existing["id"]
             else:
@@ -100,7 +115,17 @@ class SourceRegistry:
                     (id, project_id, source_type, enabled, default_quality, review_required, created_at, updated_at, metadata_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (source_id, project_id, source_type, int(enabled), default_quality, int(review_required), now, now, json_dumps(metadata)),
+                    (
+                        source_id,
+                        project_id,
+                        source_type,
+                        int(enabled),
+                        default_quality,
+                        int(review_required),
+                        now,
+                        now,
+                        json_dumps(metadata),
+                    ),
                 )
             if autocommit:
                 active_con.commit()
@@ -110,7 +135,9 @@ class SourceRegistry:
             ).fetchone()
         return dict(row) if row else {"id": source_id, "source_type": source_type}
 
-    def set_enabled(self, source_type: str, enabled: bool, *, project_id: str = "default") -> dict:
+    def set_enabled(
+        self, source_type: str, enabled: bool, *, project_id: str = "default"
+    ) -> dict:
         row = self.get(source_type, project_id=project_id)
         return self.upsert(
             source_type,
@@ -121,7 +148,9 @@ class SourceRegistry:
             metadata={},
         )
 
-    def get(self, source_type: str, *, project_id: str = "default", con=None) -> dict | None:
+    def get(
+        self, source_type: str, *, project_id: str = "default", con=None
+    ) -> dict | None:
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
             row = active_con.execute(
@@ -138,16 +167,29 @@ class SourceRegistry:
             ).fetchall()
         return rows_to_dicts(rows)
 
-    def assert_enabled(self, source_type: str, *, project_id: str = "default", con=None, autocommit: bool = True) -> dict:
+    def assert_enabled(
+        self,
+        source_type: str,
+        *,
+        project_id: str = "default",
+        con=None,
+        autocommit: bool = True,
+    ) -> dict:
         self.ensure_defaults(project_id=project_id, con=con, autocommit=autocommit)
         row = self.get(source_type, project_id=project_id, con=con)
         if row is None:
-            row = self.upsert(source_type, project_id=project_id, con=con, autocommit=autocommit)
+            row = self.upsert(
+                source_type, project_id=project_id, con=con, autocommit=autocommit
+            )
         if not bool(row["enabled"]):
-            raise ValueError(f"source type disabled for project {project_id}: {source_type}")
+            raise ValueError(
+                f"source type disabled for project {project_id}: {source_type}"
+            )
         return row
 
-    def effective_quality(self, source_type: str, *, project_id: str = "default", fallback: float = 0.5) -> float:
+    def effective_quality(
+        self, source_type: str, *, project_id: str = "default", fallback: float = 0.5
+    ) -> float:
         row = self.get(source_type, project_id=project_id)
         if not row:
             return DEFAULT_SOURCE_QUALITIES.get(source_type, fallback)

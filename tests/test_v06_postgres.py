@@ -45,6 +45,15 @@ def test_scalar_min_translation_to_least():
     )
 
 
+def test_group_concat_translation_to_string_agg():
+    sql = "SELECT GROUP_CONCAT(id) AS ids FROM evidence_sources WHERE project_id = ?"
+    out = rewrite_sql_for_postgres(sql)
+    assert (
+        out
+        == "SELECT string_agg((id)::text, ',') AS ids FROM evidence_sources WHERE project_id = %s"
+    )
+
+
 def test_split_sql_script_handles_semicolon_in_string():
     script = "CREATE TABLE x (id text); INSERT INTO x VALUES ('a;b');"
     parts = split_sql_script(script)
@@ -75,6 +84,19 @@ def test_v08_postgres_ledger_immutable_migration_sql_contains_expected_artifacts
     assert (
         "BEFORE UPDATE OR DELETE ON memory_ledger" in V08_POSTGRES_LEDGER_IMMUTABLE_SQL
     )
+
+
+def test_split_sql_script_preserves_plpgsql_function_body_as_one_statement():
+    parts = split_sql_script(V08_POSTGRES_LEDGER_IMMUTABLE_SQL)
+    assert len(parts) == 3
+    assert parts[0].startswith(
+        "CREATE OR REPLACE FUNCTION feme_memory_ledger_block_mutation()"
+    )
+    assert "RAISE EXCEPTION 'memory_ledger is append-only';" in parts[0]
+    assert parts[1].startswith(
+        "DROP TRIGGER IF EXISTS trg_memory_ledger_block_mutation ON memory_ledger"
+    )
+    assert parts[2].startswith("CREATE TRIGGER trg_memory_ledger_block_mutation")
 
 
 def test_v09_evidence_dedup_unique_index_sql_contains_expected_artifacts():

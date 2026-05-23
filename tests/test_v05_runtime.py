@@ -19,13 +19,16 @@ def _db(tmp_path: Path) -> Database:
 
 def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
     db = _db(tmp_path)
-    assert db.schema_version() in {"0.5.0", "0.6.0"}
+    assert db.schema_version() in {"0.5.0", "0.6.0", "0.7.0"}
     health = runtime_health(db)
     assert health["health"]["ok"] is True
     store = SQLiteStore(db)
     assert store.capabilities().transactions is True
     with store.transaction() as con:
-        con.execute("INSERT OR IGNORE INTO projects (id, name, created_at, updated_at, metadata_json) VALUES (?, ?, ?, ?, ?)", ("tx", "tx", "now", "now", "{}"))
+        con.execute(
+            "INSERT OR IGNORE INTO projects (id, name, created_at, updated_at, metadata_json) VALUES (?, ?, ?, ?, ?)",
+            ("tx", "tx", "now", "now", "{}"),
+        )
     rows = store.execute("SELECT id FROM projects WHERE id = ?", ("tx",))
     assert rows[0]["id"] == "tx"
 
@@ -55,7 +58,9 @@ def test_retrieval_eval_suite(tmp_path: Path):
         source_type="official_record",
     )
     suite = RetrievalEvalSuite(db)
-    case = suite.add_case(query="canonical memory database", expected_terms=["PostgreSQL"])
+    case = suite.add_case(
+        query="canonical memory database", expected_terms=["PostgreSQL"]
+    )
     assert case["id"].startswith("evalcase_")
     result = suite.run()
     assert result["case_count"] == 1
