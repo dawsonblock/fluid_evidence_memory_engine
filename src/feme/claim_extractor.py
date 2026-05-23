@@ -332,9 +332,7 @@ def extract_candidates_for_evidence(
             extractor_provider,
             extractor_mode,
         )
-        provider = (
-            provider_registry or build_default_registry()
-        ).get(provider_label)
+        provider = (provider_registry or build_default_registry()).get(provider_label)
         fallback_used = outcome == HEURISTIC_FALLBACK
         error_type = _error_type_from_detail(detail)
         try:
@@ -361,9 +359,7 @@ def extract_candidates_for_evidence(
             if require_extractor_audit:
                 raise ExtractorAuditWriteError(str(exc)) from exc
             if audit_warnings is not None:
-                audit_warnings.append(
-                    f"audit_write_failed:{exc.__class__.__name__}"
-                )
+                audit_warnings.append(f"audit_write_failed:{exc.__class__.__name__}")
         candidates.extend(chunk_candidates)
     return candidates
 
@@ -438,10 +434,7 @@ def _candidate_from_structured_json(
     if char_start is None or char_end is None:
         return None, span_reason or "invalid_schema"
 
-    has_token_span = (
-        "support_token_start" in entry
-        or "support_token_end" in entry
-    )
+    has_token_span = "support_token_start" in entry or "support_token_end" in entry
     token_start, token_end, token_reason = _read_token_span(entry)
     if has_token_span and (token_start is None or token_end is None):
         return None, token_reason or "invalid_schema"
@@ -634,9 +627,7 @@ def _sentence_to_candidate(
 ) -> ClaimCandidate | None:
     lowered = sentence.lower()
     explicitness = 1.0 if any(m in lowered for m in EXPLICIT_MARKERS) else 0.2
-    project_relevance = (
-        0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
-    )
+    project_relevance = 0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
 
     patterns = [
         (r"use\s+(.+?)\s+as\s+(.+)", "uses_as"),
@@ -690,9 +681,7 @@ def _sentence_to_candidate(
         else None
     )
     support_char_end_abs = (
-        chunk_char_start + support_char_end
-        if support_char_end is not None
-        else None
+        chunk_char_start + support_char_end if support_char_end is not None else None
     )
     chunk_token_start = int(chunk.get("token_start") or 0)
     support_token_start_abs = (
@@ -701,9 +690,7 @@ def _sentence_to_candidate(
         else None
     )
     support_token_end_abs = (
-        chunk_token_start + support_token_end
-        if support_token_end is not None
-        else None
+        chunk_token_start + support_token_end if support_token_end is not None else None
     )
 
     return ClaimCandidate(
@@ -731,9 +718,7 @@ def _sentence_to_candidate(
             )
             else 0.4
         ),
-        contradiction_value=(
-            0.65 if memory_type == MemoryType.correction else 0.0
-        ),
+        contradiction_value=(0.65 if memory_type == MemoryType.correction else 0.0),
         privacy_sensitivity=privacy_sensitivity,
         uncertainty=0.45 if memory_type == MemoryType.inference else 0.18,
         triviality=0.05 if project_relevance >= 0.7 else 0.25,
@@ -875,9 +860,7 @@ def _persist_extractor_audit(
             con2.commit()
     except Exception as exc:
         if require_success:
-            raise ExtractorAuditWriteError(
-                "extractor audit write failed"
-            ) from exc
+            raise ExtractorAuditWriteError("extractor audit write failed") from exc
         raise
 
 

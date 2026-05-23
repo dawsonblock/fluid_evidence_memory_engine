@@ -13,9 +13,7 @@ class JsonStaticExtractorProvider:
         metadata: dict[str, Any],
     ) -> dict[str, Any]:
         configured = (
-            metadata.get("extractor_config")
-            if isinstance(metadata, dict)
-            else None
+            metadata.get("extractor_config") if isinstance(metadata, dict) else None
         )
         if not isinstance(configured, dict):
             return {"claims": []}

@@ -118,15 +118,9 @@ def _role_for_api_key(api_key: str) -> str | None:
     auth_settings = get_settings()
     if auth_settings.api_key_admin and api_key == auth_settings.api_key_admin:
         return "admin"
-    if (
-        auth_settings.api_key_editor
-        and api_key == auth_settings.api_key_editor
-    ):
+    if auth_settings.api_key_editor and api_key == auth_settings.api_key_editor:
         return "editor"
-    if (
-        auth_settings.api_key_reviewer
-        and api_key == auth_settings.api_key_reviewer
-    ):
+    if auth_settings.api_key_reviewer and api_key == auth_settings.api_key_reviewer:
         return "reviewer"
     viewer_key = auth_settings.api_key_viewer or auth_settings.api_key_readonly
     if viewer_key and api_key == viewer_key:
@@ -329,10 +323,7 @@ def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
         or not extractor_provider.strip()
         or build_default_registry().get(extractor_provider) is None
     )
-    if (
-        strict_provider_invalid
-        and not req.allow_evidence_only_on_extractor_failure
-    ):
+    if strict_provider_invalid and not req.allow_evidence_only_on_extractor_failure:
         raise HTTPException(
             status_code=400,
             detail="structured_extractor_unavailable",
@@ -348,10 +339,7 @@ def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
     contradictions = []
     audit_warnings: list[str] = []
     if req.extract_claims:
-        if (
-            strict_provider_invalid
-            and req.allow_evidence_only_on_extractor_failure
-        ):
+        if strict_provider_invalid and req.allow_evidence_only_on_extractor_failure:
             return {
                 "evidence": result,
                 "claim_writes": [],
@@ -700,18 +688,12 @@ def ingest_governed(
         or not extractor_provider.strip()
         or build_default_registry().get(extractor_provider) is None
     )
-    if (
-        strict_provider_invalid
-        and not req.allow_evidence_only_on_extractor_failure
-    ):
+    if strict_provider_invalid and not req.allow_evidence_only_on_extractor_failure:
         raise HTTPException(
             status_code=400,
             detail="structured_extractor_unavailable",
         )
-    if (
-        strict_provider_invalid
-        and req.allow_evidence_only_on_extractor_failure
-    ):
+    if strict_provider_invalid and req.allow_evidence_only_on_extractor_failure:
         result = TransactionalIngestionPipeline(database).ingest_text(
             req.text,
             source_type=req.source_type,
