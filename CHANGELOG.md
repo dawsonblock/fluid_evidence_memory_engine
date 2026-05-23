@@ -16,6 +16,7 @@
 - Moved entity extraction and timeline generation into the same ingestion transaction as evidence/chunk writes.
 - Added rollback regression coverage so timeline side-effect failures do not leave partial ingest artifacts.
 - Added per-request API auth audit tracing for protected routes (method/path, required role, resolved role, decision, detail, principal hash).
+- Added scaffold-level sentence-to-citation verification (`sentence_citation_checks`, `citation_verification`) so unsupported answer sentences are flagged before publication.
 
 ## v0.7.0 - PostgreSQL Proof + Runtime Hygiene
 

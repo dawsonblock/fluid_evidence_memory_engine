@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from .citations import CitationManager
 from .context_builder import ContextBuilder
 from .db import Database
@@ -68,6 +70,19 @@ class GroundedAnswerBuilder:
             warnings.append(
                 "Includes lower-trust source claims; corroborate with higher-trust evidence."
             )
+        sentence_checks = _verify_sentence_citations(claim_lines)
+        unsupported_count = sum(
+            1 for check in sentence_checks if not bool(check.get("verified"))
+        )
+        citation_verification = {
+            "ok": unsupported_count == 0,
+            "checked_sentences": len(sentence_checks),
+            "unsupported_sentences": unsupported_count,
+        }
+        if unsupported_count:
+            warnings.append(
+                "One or more answer sentences are missing citations; block publication until every sentence is grounded."
+            )
         return {
             "question": question,
             "project_id": project_id,
@@ -75,5 +90,29 @@ class GroundedAnswerBuilder:
             "warnings": warnings,
             "claims": claim_lines,
             "citations": citations,
+            "sentence_citation_checks": sentence_checks,
+            "citation_verification": citation_verification,
             "drafting_instruction": "Answer only from the listed claims/citations. Mark unsupported or contradicted points explicitly.",
         }
+
+
+def _verify_sentence_citations(claim_lines: list[dict]) -> list[dict]:
+    checks: list[dict] = []
+    for claim in claim_lines:
+        claim_id = claim.get("claim_id")
+        citations = list(claim.get("citations") or [])
+        for sentence in _split_sentences(str(claim.get("text") or "")):
+            checks.append(
+                {
+                    "claim_id": claim_id,
+                    "sentence": sentence,
+                    "citations": citations,
+                    "verified": bool(citations),
+                }
+            )
+    return checks
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text or "")]
+    return [s for s in parts if s]

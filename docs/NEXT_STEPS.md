@@ -75,4 +75,4 @@ The hashing embedder is deterministic and offline, but weak. Replace with a loca
 2. Expand PostgreSQL parity/load testing and preserve live proof artifacts in release evidence.
 3. Add queue-backed ingestion workers for PDFs/HTML/legal XML/source snapshots.
 4. Add auth-audit anomaly reporting (invalid-key spikes, denied-scope hotspots, unusual route access patterns).
-5. Add per-answer sentence-to-citation verification before any public output layer.
+5. Enforce citation-verification gates in downstream UI/publication workflows.

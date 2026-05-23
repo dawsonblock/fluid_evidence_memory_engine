@@ -67,7 +67,38 @@ def test_timeline_citations_and_answer_scaffold(tmp_path: Path):
     )
     assert scaffold["citations"]
     assert scaffold["claims"]
+    assert scaffold["sentence_citation_checks"]
+    assert scaffold["citation_verification"]["ok"] is True
+    assert scaffold["citation_verification"]["unsupported_sentences"] == 0
     assert scaffold["risk_summary"]["risk"] in {"low", "medium", "high"}
+
+
+def test_answer_scaffold_blocks_when_sentence_citations_missing(
+    tmp_path: Path,
+    monkeypatch,
+):
+    db = _db(tmp_path)
+    result = EvidenceIngestor(db).ingest_text(
+        "Use PostgreSQL as canonical memory.",
+        source_type="official_record",
+        title="citation verification sample",
+    )
+    gov = MemoryWriteGovernor(db)
+    for candidate in extract_candidates_for_evidence(db, result["evidence_id"]):
+        gov.commit_candidate(candidate)
+
+    monkeypatch.setattr(
+        "feme.citations.CitationManager.citations_for_context",
+        lambda self, packet, persist=False: [],
+    )
+
+    scaffold = GroundedAnswerBuilder(db).build_scaffold(
+        "What database should memory use?"
+    )
+    assert scaffold["citation_verification"]["ok"] is False
+    assert scaffold["citation_verification"]["unsupported_sentences"] >= 1
+    warning_text = "\n".join(scaffold["warnings"]).lower()
+    assert "missing citations" in warning_text
 
 
 def test_consolidation_capsules_and_retention_redaction(tmp_path: Path):
