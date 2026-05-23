@@ -52,16 +52,25 @@ class SearchRequest(BaseModel):
     query: str
     project_id: str = "default"
     top_k: int = 10
+    include_pending_review: bool = False
 
 
 class ContextRequest(BaseModel):
     question: str
     project_id: str = "default"
     token_budget: int = 12000
+    include_pending_review: bool = False
 
 
 class ReviewActionRequest(BaseModel):
     claim_id: str
+    action: str
+    reviewer: str | None = None
+    reason: str = ""
+
+
+class ReviewEvidenceRequest(BaseModel):
+    evidence_id: str
     action: str
     reviewer: str | None = None
     reason: str = ""
@@ -150,7 +159,10 @@ def search(req: SearchRequest):
     return [
         r.model_dump()
         for r in RetrievalPlanner(database).search(
-            req.query, project_id=req.project_id, top_k=req.top_k
+            req.query,
+            project_id=req.project_id,
+            top_k=req.top_k,
+            include_pending_review=req.include_pending_review,
         )
     ]
 
@@ -159,7 +171,12 @@ def search(req: SearchRequest):
 def context(req: ContextRequest):
     return (
         ContextBuilder(database)
-        .build(req.question, project_id=req.project_id, token_budget=req.token_budget)
+        .build(
+            req.question,
+            project_id=req.project_id,
+            token_budget=req.token_budget,
+            include_pending_review=req.include_pending_review,
+        )
         .model_dump()
     )
 
@@ -227,6 +244,13 @@ def review_action(req: ReviewActionRequest):
     )
 
 
+@app.post("/review/evidence")
+def review_evidence(req: ReviewEvidenceRequest):
+    return ReviewQueue(database).review_evidence(
+        req.evidence_id, req.action, reviewer=req.reviewer, reason=req.reason
+    )
+
+
 @app.get("/claims/{claim_id}/trace")
 def claim_trace(claim_id: str):
     return ProvenanceGraph(database).trace_claim(claim_id)
@@ -272,7 +296,10 @@ def timeline(project_id: str = "default", limit: int = 100):
 @app.post("/citations")
 def citations(req: ContextRequest, persist: bool = False):
     packet = ContextBuilder(database).build(
-        req.question, project_id=req.project_id, token_budget=req.token_budget
+        req.question,
+        project_id=req.project_id,
+        token_budget=req.token_budget,
+        include_pending_review=req.include_pending_review,
     )
     return CitationManager(database).citations_for_context(packet, persist=persist)
 
@@ -280,7 +307,10 @@ def citations(req: ContextRequest, persist: bool = False):
 @app.post("/answer/scaffold")
 def answer_scaffold(req: ContextRequest):
     return GroundedAnswerBuilder(database).build_scaffold(
-        req.question, project_id=req.project_id, token_budget=req.token_budget
+        req.question,
+        project_id=req.project_id,
+        token_budget=req.token_budget,
+        include_pending_review=req.include_pending_review,
     )
 
 

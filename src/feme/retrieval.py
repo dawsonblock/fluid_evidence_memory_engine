@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import Any
 
 from .db import Database
@@ -23,8 +22,15 @@ class RetrievalPlanner:
         *,
         project_id: str = "default",
         top_k: int = 10,
-        include_statuses: tuple[str, ...] = ("active", "pending_review", "disputed"),
+        include_statuses: tuple[str, ...] | None = None,
+        include_pending_review: bool = True,
     ) -> list[RetrievalResult]:
+        if include_statuses is None:
+            include_statuses = (
+                ("active", "pending_review", "disputed")
+                if include_pending_review
+                else ("active", "disputed")
+            )
         claim_results = self._search_claims(
             query,
             project_id=project_id,
@@ -39,7 +45,11 @@ class RetrievalPlanner:
         )
         merged = diversify_results(query, merged_raw, top_k=top_k)
         self._audit(
-            query, merged, project_id=project_id, include_statuses=include_statuses
+            query,
+            merged,
+            project_id=project_id,
+            include_statuses=include_statuses,
+            include_pending_review=include_pending_review,
         )
         self._touch_claims([r.claim_id for r in merged if r.claim_id])
         return merged

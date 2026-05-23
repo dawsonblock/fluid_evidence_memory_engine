@@ -2,6 +2,7 @@ from pathlib import Path
 
 from feme.claim_extractor import extract_candidates_for_evidence
 from feme.context_builder import ContextBuilder
+from feme.citations import CitationManager
 from feme.db import Database
 from feme.evidence import EvidenceIngestor
 from feme.export_import import ProjectExporter
@@ -31,14 +32,44 @@ def test_claims_are_linked_to_exact_token_spans(tmp_path):
     write = MemoryWriteGovernor(db).commit_candidate(candidates[0], project_id="memory")
     assert write.matched_claim_id
     with db.connect() as con:
-        row = con.execute("SELECT span_id FROM claim_evidence_links WHERE claim_id = ?", (write.matched_claim_id,)).fetchone()
+        row = con.execute(
+            "SELECT span_id FROM claim_evidence_links WHERE claim_id = ?",
+            (write.matched_claim_id,),
+        ).fetchone()
     assert row["span_id"] in result["span_ids"]
+
+
+def test_support_spans_are_exposed_with_exact_offsets(tmp_path):
+    db = make_db(tmp_path)
+    text = "Use PostgreSQL as the canonical memory database."
+    result = EvidenceIngestor(db).ingest_text(
+        text,
+        source_type="note",
+        project_id="memory",
+    )
+    candidates = extract_candidates_for_evidence(db, result["evidence_id"])
+    write = MemoryWriteGovernor(db).commit_candidate(candidates[0], project_id="memory")
+
+    packet = ContextBuilder(db).build("canonical memory database", project_id="memory")
+    claim_items = [item for item in packet.included if item.get("kind") == "claim"]
+    assert claim_items
+    evidence = claim_items[0]["supporting_evidence"][0]
+    assert evidence["char_start"] < evidence["char_end"]
+    assert evidence["span_text"] == text[evidence["char_start"] : evidence["char_end"]]
+
+    citations = CitationManager(db).citations_for_context(packet)
+    assert citations
+    assert citations[0]["quote_text"] == evidence["span_text"]
 
 
 def test_chunk_retrieval_is_project_scoped(tmp_path):
     db = make_db(tmp_path)
-    EvidenceIngestor(db).ingest_text("Alpha project uses Postgres memory.", project_id="alpha")
-    EvidenceIngestor(db).ingest_text("Beta project uses Qdrant memory.", project_id="beta")
+    EvidenceIngestor(db).ingest_text(
+        "Alpha project uses Postgres memory.", project_id="alpha"
+    )
+    EvidenceIngestor(db).ingest_text(
+        "Beta project uses Qdrant memory.", project_id="beta"
+    )
     results = RetrievalPlanner(db).search("Qdrant", project_id="alpha", top_k=5)
     assert all("Beta project" not in r.text for r in results)
 

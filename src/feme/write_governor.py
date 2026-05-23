@@ -5,7 +5,13 @@ from contextlib import nullcontext
 
 from .db import Database
 from .embeddings import HashingEmbedder, cosine
-from .models import ClaimCandidate, MemoryLevel, MemoryType, WriteDecision, WriteDecisionResult
+from .models import (
+    ClaimCandidate,
+    MemoryLevel,
+    MemoryType,
+    WriteDecision,
+    WriteDecisionResult,
+)
 from .policy import MemoryPolicy
 from .scoring import save_score
 from .utils import json_dumps, new_id, normalize_key, now_iso
@@ -17,10 +23,25 @@ class MemoryWriteGovernor:
         self.embedder = HashingEmbedder()
         self.policy = policy or MemoryPolicy.default()
 
-    def decide(self, candidate: ClaimCandidate, *, project_id: str = "default", con=None) -> WriteDecisionResult:
+    def decide(
+        self, candidate: ClaimCandidate, *, project_id: str = "default", con=None
+    ) -> WriteDecisionResult:
         reasons: list[str] = []
 
-        if candidate.evidence_id and candidate.memory_level == MemoryLevel.evidence_memory:
+        if bool((candidate.metadata or {}).get("source_review_required")):
+            reasons.append("source type marked review_required")
+            return WriteDecisionResult(
+                decision=WriteDecision.needs_human_review,
+                memory_level=MemoryLevel.project_memory,
+                save_score=0.5,
+                reasons=reasons,
+                requires_review=True,
+            )
+
+        if (
+            candidate.evidence_id
+            and candidate.memory_level == MemoryLevel.evidence_memory
+        ):
             reasons.append("raw evidence should be preserved immutably")
             return WriteDecisionResult(
                 decision=WriteDecision.save_new,
@@ -29,7 +50,10 @@ class MemoryWriteGovernor:
                 reasons=reasons,
             )
 
-        if candidate.privacy_sensitivity >= self.policy.human_review_privacy_threshold and candidate.user_explicitness < self.policy.explicit_override_threshold:
+        if (
+            candidate.privacy_sensitivity >= self.policy.human_review_privacy_threshold
+            and candidate.user_explicitness < self.policy.explicit_override_threshold
+        ):
             reasons.append("high privacy sensitivity without explicit save instruction")
             return WriteDecisionResult(
                 decision=WriteDecision.needs_human_review,
@@ -42,7 +66,9 @@ class MemoryWriteGovernor:
         similar = self.find_similar_claim(candidate, project_id=project_id, con=con)
         if similar and similar["score"] >= self.policy.near_duplicate_threshold:
             if _looks_contradictory(candidate, similar):
-                reasons.append("near-duplicate wording but conflicting polarity/object; save for contradiction scan")
+                reasons.append(
+                    "near-duplicate wording but conflicting polarity/object; save for contradiction scan"
+                )
             elif candidate.memory_type == MemoryType.correction:
                 reasons.append("correction updates an existing related claim")
                 return WriteDecisionResult(
@@ -62,7 +88,10 @@ class MemoryWriteGovernor:
                     matched_claim_id=similar["id"],
                 )
 
-        if candidate.memory_type == MemoryType.inference and candidate.source_quality < self.policy.inference_review_source_quality:
+        if (
+            candidate.memory_type == MemoryType.inference
+            and candidate.source_quality < self.policy.inference_review_source_quality
+        ):
             reasons.append("low-source-quality inference")
             return WriteDecisionResult(
                 decision=WriteDecision.save_as_inference_only,
@@ -94,7 +123,9 @@ class MemoryWriteGovernor:
             level = MemoryLevel.do_not_save
             reasons.append("low save score")
 
-        return WriteDecisionResult(decision=decision, memory_level=level, save_score=score, reasons=reasons)
+        return WriteDecisionResult(
+            decision=decision, memory_level=level, save_score=score, reasons=reasons
+        )
 
     def commit_candidate(
         self,
@@ -107,18 +138,26 @@ class MemoryWriteGovernor:
         result = self.decide(candidate, project_id=project_id, con=con)
         self.audit(candidate, result, con=con, autocommit=autocommit)
 
-        if result.decision == WriteDecision.merge_with_existing and result.matched_claim_id:
-            self._merge_claim(result.matched_claim_id, candidate, con=con, autocommit=autocommit)
+        if (
+            result.decision == WriteDecision.merge_with_existing
+            and result.matched_claim_id
+        ):
+            self._merge_claim(
+                result.matched_claim_id, candidate, con=con, autocommit=autocommit
+            )
             return result
 
         if result.decision == WriteDecision.update_existing and result.matched_claim_id:
-            self._supersede_claim(result.matched_claim_id, candidate, con=con, autocommit=autocommit)
+            self._supersede_claim(
+                result.matched_claim_id, candidate, con=con, autocommit=autocommit
+            )
             # Save the correction as an active claim too, so the system can trace the replacement.
             result = WriteDecisionResult(
                 decision=WriteDecision.save_new,
                 memory_level=MemoryLevel.project_memory,
                 save_score=result.save_score,
-                reasons=result.reasons + ["saved replacement claim after superseding old claim"],
+                reasons=result.reasons
+                + ["saved replacement claim after superseding old claim"],
             )
 
         if result.decision not in {
@@ -163,12 +202,25 @@ class MemoryWriteGovernor:
             )
             active_con.execute(
                 "INSERT INTO memory_claims_fts (claim_id, subject, predicate, object, claim_text) VALUES (?, ?, ?, ?, ?)",
-                (claim_id, candidate.subject, candidate.predicate, candidate.object, candidate.claim_text),
+                (
+                    claim_id,
+                    candidate.subject,
+                    candidate.predicate,
+                    candidate.object,
+                    candidate.claim_text,
+                ),
             )
             vector = self.embedder.embed(candidate.claim_text)
             active_con.execute(
                 "INSERT INTO embeddings (id, owner_type, owner_id, vector_json, model, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (new_id("emb"), "claim", claim_id, json.dumps(vector), "hashing-embedding-v1", now),
+                (
+                    new_id("emb"),
+                    "claim",
+                    claim_id,
+                    json.dumps(vector),
+                    "hashing-embedding-v1",
+                    now,
+                ),
             )
             if candidate.evidence_id:
                 active_con.execute(
@@ -193,7 +245,9 @@ class MemoryWriteGovernor:
         result.matched_claim_id = claim_id
         return result
 
-    def find_similar_claim(self, candidate: ClaimCandidate, *, project_id: str = "default", con=None) -> dict | None:
+    def find_similar_claim(
+        self, candidate: ClaimCandidate, *, project_id: str = "default", con=None
+    ) -> dict | None:
         query_vec = self.embedder.embed(candidate.claim_text)
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
@@ -211,10 +265,9 @@ class MemoryWriteGovernor:
         for row in rows:
             vec = json.loads(row["vector_json"])
             sem = cosine(query_vec, vec)
-            same_key = (
-                normalize_key(candidate.subject) == normalize_key(row["subject"])
-                and normalize_key(candidate.predicate) == normalize_key(row["predicate"])
-            )
+            same_key = normalize_key(candidate.subject) == normalize_key(
+                row["subject"]
+            ) and normalize_key(candidate.predicate) == normalize_key(row["predicate"])
             score = sem + (0.15 if same_key else 0.0)
             if best is None or score > best["score"]:
                 best = {
@@ -227,7 +280,14 @@ class MemoryWriteGovernor:
                 }
         return best
 
-    def _merge_claim(self, claim_id: str, candidate: ClaimCandidate, *, con=None, autocommit: bool = True) -> None:
+    def _merge_claim(
+        self,
+        claim_id: str,
+        candidate: ClaimCandidate,
+        *,
+        con=None,
+        autocommit: bool = True,
+    ) -> None:
         now = now_iso()
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
@@ -263,11 +323,20 @@ class MemoryWriteGovernor:
             if autocommit:
                 active_con.commit()
 
-    def _supersede_claim(self, claim_id: str, candidate: ClaimCandidate, *, con=None, autocommit: bool = True) -> None:
+    def _supersede_claim(
+        self,
+        claim_id: str,
+        candidate: ClaimCandidate,
+        *,
+        con=None,
+        autocommit: bool = True,
+    ) -> None:
         now = now_iso()
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
-            before = active_con.execute("SELECT * FROM memory_claims WHERE id = ?", (claim_id,)).fetchone()
+            before = active_con.execute(
+                "SELECT * FROM memory_claims WHERE id = ?", (claim_id,)
+            ).fetchone()
             active_con.execute(
                 "UPDATE memory_claims SET status = 'superseded', updated_at = ?, last_touched = ? WHERE id = ?",
                 (now, now, claim_id),
@@ -291,7 +360,14 @@ class MemoryWriteGovernor:
             if autocommit:
                 active_con.commit()
 
-    def audit(self, candidate: ClaimCandidate, result: WriteDecisionResult, *, con=None, autocommit: bool = True) -> None:
+    def audit(
+        self,
+        candidate: ClaimCandidate,
+        result: WriteDecisionResult,
+        *,
+        con=None,
+        autocommit: bool = True,
+    ) -> None:
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
             active_con.execute(
@@ -310,16 +386,37 @@ class MemoryWriteGovernor:
 
 def _has_negation(text: str) -> bool:
     words = {w.strip(".,;:!?()[]{}\"'").lower() for w in text.split()}
-    return bool(words & {"not", "no", "never", "cannot", "can't", "isn't", "wasn't", "won't", "without", "instead"})
+    return bool(
+        words
+        & {
+            "not",
+            "no",
+            "never",
+            "cannot",
+            "can't",
+            "isn't",
+            "wasn't",
+            "won't",
+            "without",
+            "instead",
+        }
+    )
 
 
 def _looks_contradictory(candidate: ClaimCandidate, similar: dict) -> bool:
-    same_key = (
-        normalize_key(candidate.subject) == normalize_key(similar.get("subject", ""))
-        and normalize_key(candidate.predicate) == normalize_key(similar.get("predicate", ""))
+    same_key = normalize_key(candidate.subject) == normalize_key(
+        similar.get("subject", "")
+    ) and normalize_key(candidate.predicate) == normalize_key(
+        similar.get("predicate", "")
     )
     if not same_key:
         return False
-    different_object = normalize_key(candidate.object) != normalize_key(similar.get("object", ""))
-    different_negation = _has_negation(candidate.claim_text) != _has_negation(similar.get("claim_text", ""))
-    return different_object and (different_negation or candidate.memory_type == MemoryType.correction)
+    different_object = normalize_key(candidate.object) != normalize_key(
+        similar.get("object", "")
+    )
+    different_negation = _has_negation(candidate.claim_text) != _has_negation(
+        similar.get("claim_text", "")
+    )
+    return different_object and (
+        different_negation or candidate.memory_type == MemoryType.correction
+    )

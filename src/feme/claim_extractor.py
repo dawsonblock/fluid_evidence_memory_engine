@@ -6,7 +6,6 @@ from .models import ClaimCandidate, MemoryLevel, MemoryType
 from .policy import MemoryPolicy
 from .utils import normalize_space
 
-
 EXPLICIT_MARKERS = [
     "remember",
     "from now on",
@@ -37,11 +36,28 @@ PROJECT_MARKERS = [
     "retrieval",
 ]
 
-INFERENCE_MARKERS = ["maybe", "could", "infer", "suggests", "appears", "probably", "likely"]
-CORRECTION_MARKERS = ["actually", "correction", "instead", "replace", "supersede", "not anymore"]
+INFERENCE_MARKERS = [
+    "maybe",
+    "could",
+    "infer",
+    "suggests",
+    "appears",
+    "probably",
+    "likely",
+]
+CORRECTION_MARKERS = [
+    "actually",
+    "correction",
+    "instead",
+    "replace",
+    "supersede",
+    "not anymore",
+]
 
 
-def extract_candidates_from_chunk(chunk: dict, policy: MemoryPolicy | None = None) -> list[ClaimCandidate]:
+def extract_candidates_from_chunk(
+    chunk: dict, policy: MemoryPolicy | None = None
+) -> list[ClaimCandidate]:
     policy = policy or MemoryPolicy.default()
     text = normalize_space(chunk["text"])
     if not text:
@@ -66,9 +82,12 @@ def extract_candidates_for_evidence(
         with db.connect() as con2:
             rows = con2.execute(
                 """
-                SELECT tc.*, ts.id AS span_id
+                SELECT tc.*, ts.id AS span_id, es.source_type, sr.review_required
                 FROM text_chunks tc
                 LEFT JOIN token_spans ts ON ts.chunk_id = tc.id
+                LEFT JOIN evidence_sources es ON es.id = tc.evidence_id
+                LEFT JOIN source_registry sr
+                  ON sr.project_id = es.project_id AND sr.source_type = es.source_type
                 WHERE tc.evidence_id = ?
                 ORDER BY tc.chunk_index
                 """,
@@ -77,9 +96,12 @@ def extract_candidates_for_evidence(
     else:
         rows = con.execute(
             """
-            SELECT tc.*, ts.id AS span_id
+            SELECT tc.*, ts.id AS span_id, es.source_type, sr.review_required
             FROM text_chunks tc
             LEFT JOIN token_spans ts ON ts.chunk_id = tc.id
+            LEFT JOIN evidence_sources es ON es.id = tc.evidence_id
+            LEFT JOIN source_registry sr
+              ON sr.project_id = es.project_id AND sr.source_type = es.source_type
             WHERE tc.evidence_id = ?
             ORDER BY tc.chunk_index
             """,
@@ -96,7 +118,9 @@ def _sentences(text: str) -> list[str]:
     return [p.strip() for p in parts if len(p.strip()) >= 12]
 
 
-def _sentence_to_candidate(sentence: str, chunk: dict, policy: MemoryPolicy) -> ClaimCandidate | None:
+def _sentence_to_candidate(
+    sentence: str, chunk: dict, policy: MemoryPolicy
+) -> ClaimCandidate | None:
     lowered = sentence.lower()
     explicitness = 1.0 if any(m in lowered for m in EXPLICIT_MARKERS) else 0.2
     project_relevance = 0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
@@ -134,7 +158,11 @@ def _sentence_to_candidate(sentence: str, chunk: dict, policy: MemoryPolicy) -> 
         predicate = "states"
         obj = sentence
 
-    memory_type = MemoryType.project_decision if project_relevance >= 0.7 else MemoryType.evidence_claim
+    memory_type = (
+        MemoryType.project_decision
+        if project_relevance >= 0.7
+        else MemoryType.evidence_claim
+    )
     if any(m in lowered for m in INFERENCE_MARKERS):
         memory_type = MemoryType.inference
     if any(m in lowered for m in CORRECTION_MARKERS):
@@ -150,13 +178,24 @@ def _sentence_to_candidate(sentence: str, chunk: dict, policy: MemoryPolicy) -> 
         claim_text=sentence,
         memory_type=memory_type,
         memory_level=MemoryLevel.project_memory,
-        confidence=0.64 if memory_type not in {MemoryType.inference, MemoryType.correction} else 0.50,
+        confidence=(
+            0.64
+            if memory_type not in {MemoryType.inference, MemoryType.correction}
+            else 0.50
+        ),
         salience=0.68 if project_relevance >= 0.7 else 0.45,
         source_quality=source_quality,
         user_explicitness=explicitness,
         long_term_usefulness=0.78 if project_relevance >= 0.7 else 0.45,
         project_relevance=project_relevance,
-        actionability=0.72 if any(v in lowered for v in ["use", "must", "should", "store", "build", "replace"]) else 0.4,
+        actionability=(
+            0.72
+            if any(
+                v in lowered
+                for v in ["use", "must", "should", "store", "build", "replace"]
+            )
+            else 0.4
+        ),
         contradiction_value=0.65 if memory_type == MemoryType.correction else 0.0,
         privacy_sensitivity=privacy_sensitivity,
         uncertainty=0.45 if memory_type == MemoryType.inference else 0.18,
@@ -165,7 +204,12 @@ def _sentence_to_candidate(sentence: str, chunk: dict, policy: MemoryPolicy) -> 
         evidence_id=chunk.get("evidence_id"),
         chunk_id=chunk.get("id"),
         span_id=chunk.get("span_id"),
-        metadata={"extractor": "heuristic-v2", "chunk_index": chunk.get("chunk_index")},
+        metadata={
+            "extractor": "heuristic-v2",
+            "chunk_index": chunk.get("chunk_index"),
+            "source_type": chunk.get("source_type"),
+            "source_review_required": bool(chunk.get("review_required", 0)),
+        },
     )
 
 

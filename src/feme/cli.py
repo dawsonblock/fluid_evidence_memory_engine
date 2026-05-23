@@ -166,10 +166,18 @@ def search(
     query: str = typer.Argument(...),
     project_id: str = typer.Option("default"),
     top_k: int = 10,
+    include_pending_review: bool = typer.Option(
+        False,
+        "--include-pending-review/--exclude-pending-review",
+        help="Whether to include claims still pending review",
+    ),
 ):
     database = _db(db)
     results = RetrievalPlanner(database).search(
-        query, project_id=project_id, top_k=top_k
+        query,
+        project_id=project_id,
+        top_k=top_k,
+        include_pending_review=include_pending_review,
     )
     for r in results:
         print(
@@ -185,10 +193,18 @@ def context(
     question: str = typer.Argument(...),
     project_id: str = typer.Option("default"),
     budget: int = typer.Option(12000),
+    include_pending_review: bool = typer.Option(
+        False,
+        "--include-pending-review/--exclude-pending-review",
+        help="Whether to include claims still pending review",
+    ),
 ):
     database = _db(db)
     packet = ContextBuilder(database).build(
-        question, project_id=project_id, token_budget=budget
+        question,
+        project_id=project_id,
+        token_budget=budget,
+        include_pending_review=include_pending_review,
     )
     print(packet.model_dump_json(indent=2))
 

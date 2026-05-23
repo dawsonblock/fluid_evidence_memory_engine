@@ -12,8 +12,20 @@ class ContextBuilder:
         self.db = db
         self.retrieval = RetrievalPlanner(db)
 
-    def build(self, question: str, *, project_id: str = "default", token_budget: int = 12000) -> ContextPacket:
-        results = self.retrieval.search(question, project_id=project_id, top_k=24)
+    def build(
+        self,
+        question: str,
+        *,
+        project_id: str = "default",
+        token_budget: int = 12000,
+        include_pending_review: bool = True,
+    ) -> ContextPacket:
+        results = self.retrieval.search(
+            question,
+            project_id=project_id,
+            top_k=24,
+            include_pending_review=include_pending_review,
+        )
         included: list[dict] = []
         excluded: list[dict] = []
         warnings: list[str] = []
@@ -21,7 +33,14 @@ class ContextBuilder:
         for result in results:
             estimate = max(1, len(result.text.split()))
             if used_tokens + estimate > token_budget:
-                excluded.append({"id": result.id, "kind": result.kind, "reason": "token_budget_exceeded", "estimated_tokens": estimate})
+                excluded.append(
+                    {
+                        "id": result.id,
+                        "kind": result.kind,
+                        "reason": "token_budget_exceeded",
+                        "estimated_tokens": estimate,
+                    }
+                )
                 continue
             item = result.model_dump()
             item["estimated_tokens"] = estimate
@@ -30,11 +49,21 @@ class ContextBuilder:
                 item["contradictions"] = self._contradictions(result.claim_id)
                 status = item["metadata"].get("status")
                 if status == "disputed":
-                    warnings.append(f"Claim {result.claim_id} is disputed; inspect contradiction records before relying on it.")
+                    warnings.append(
+                        f"Claim {result.claim_id} is disputed; inspect contradiction records before relying on it."
+                    )
+                if status == "pending_review":
+                    warnings.append(
+                        f"Claim {result.claim_id} is pending review and may require approval before use."
+                    )
                 if not item["supporting_evidence"]:
-                    warnings.append(f"Claim {result.claim_id} has no source span link; treat as lower-trust memory.")
+                    warnings.append(
+                        f"Claim {result.claim_id} has no source span link; treat as lower-trust memory."
+                    )
                 try:
-                    item["provenance_trace"] = ProvenanceGraph(self.db).trace_claim(result.claim_id)
+                    item["provenance_trace"] = ProvenanceGraph(self.db).trace_claim(
+                        result.claim_id
+                    )
                 except Exception:
                     item["provenance_trace"] = None
             if result.kind == "chunk" and result.evidence_id:
@@ -48,7 +77,12 @@ class ContextBuilder:
             included=included,
             excluded=excluded,
             warnings=warnings,
-            metadata={"used_estimated_tokens": used_tokens, "project_id": project_id, "builder": "context-builder-v3", "risk_summary": risk_summary},
+            metadata={
+                "used_estimated_tokens": used_tokens,
+                "project_id": project_id,
+                "builder": "context-builder-v3",
+                "risk_summary": risk_summary,
+            },
         )
         self._audit(question, packet)
         return packet
@@ -83,17 +117,25 @@ class ContextBuilder:
 
     def _evidence_source(self, evidence_id: str) -> dict | None:
         with self.db.connect() as con:
-            row = con.execute("SELECT * FROM evidence_sources WHERE id = ?", (evidence_id,)).fetchone()
+            row = con.execute(
+                "SELECT * FROM evidence_sources WHERE id = ?", (evidence_id,)
+            ).fetchone()
         return dict(row) if row else None
 
     def _audit(self, question: str, packet: ContextPacket) -> None:
         with self.db.connect() as con:
             con.execute(
                 "INSERT INTO answer_audit_logs (id, question, context_packet_json, answer_text, warnings_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (new_id("ans"), question, packet.model_dump_json(), None, json_dumps(packet.warnings), now_iso()),
+                (
+                    new_id("ans"),
+                    question,
+                    packet.model_dump_json(),
+                    None,
+                    json_dumps(packet.warnings),
+                    now_iso(),
+                ),
             )
             con.commit()
-
 
     def _risk_summary(self, included: list[dict]) -> dict:
         unsupported = 0
@@ -113,4 +155,9 @@ class ContextBuilder:
             risk = "medium"
         if disputed > 1 or unsupported > 3:
             risk = "high"
-        return {"risk": risk, "unsupported_claims": unsupported, "disputed_claims": disputed, "pending_review_claims": pending}
+        return {
+            "risk": risk,
+            "unsupported_claims": unsupported,
+            "disputed_claims": disputed,
+            "pending_review_claims": pending,
+        }
