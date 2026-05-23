@@ -109,7 +109,9 @@ class ContextBuilder:
         *,
         include_pending_review: bool,
     ) -> list[dict]:
-        review_clause = "" if include_pending_review else " AND e.review_status = 'active'"
+        review_clause = (
+            "" if include_pending_review else " AND e.review_status = 'active'"
+        )
         with self.db.connect() as con:
             exact_rows = con.execute(
                 f"""
@@ -174,7 +176,9 @@ class ContextBuilder:
         *,
         include_pending_review: bool,
     ) -> dict | None:
-        review_clause = "" if include_pending_review else " AND review_status = 'active'"
+        review_clause = (
+            "" if include_pending_review else " AND review_status = 'active'"
+        )
         with self.db.connect() as con:
             row = con.execute(
                 f"SELECT * FROM evidence_sources WHERE id = ?{review_clause}",

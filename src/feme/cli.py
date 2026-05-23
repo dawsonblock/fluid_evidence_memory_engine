@@ -626,12 +626,22 @@ def ledger_list(
 def ledger_verify(
     db: str = typer.Option(None),
     project_id: str = typer.Option("default"),
+    all_projects: bool = typer.Option(
+        False,
+        "--all-projects",
+        help="Verify hash-chain continuity across all projects",
+    ),
 ):
     database = _db(db)
     database.init()
-    print(
-        json.dumps(MemoryLedger(database).verify_chain(project_id=project_id), indent=2)
-    )
+    selected_project = None if all_projects else project_id
+    result = MemoryLedger(database).verify_chain(project_id=selected_project)
+    if not all_projects and int(result.get("event_count", 0)) == 0:
+        result["warning"] = (
+            "No ledger events found for selected project_id. "
+            "Use --all-projects to verify the full ledger."
+        )
+    print(json.dumps(result, indent=2))
 
 
 @app.command("claim-clusters-rebuild")

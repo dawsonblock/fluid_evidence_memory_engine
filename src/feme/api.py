@@ -34,7 +34,7 @@ from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.1")
+app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.2")
 settings = get_settings()
 database = make_database()
 database.init()
@@ -281,7 +281,7 @@ class EvalCaseRequest(BaseModel):
 def health():
     return {
         "status": "ok",
-        "version": "0.7.1",
+        "version": "0.7.2",
         "db_backend": settings.db_backend,
         "db_path": getattr(database, "path", settings.db_path),
         "runtime": runtime_health(database),

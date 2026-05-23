@@ -213,6 +213,7 @@ feme citations "Why did latency increase?" --db ./memory.db --persist
 feme runtime-health --db ./memory.db
 feme integrity-check --db ./memory.db --project-id default
 feme ledger-verify --db ./memory.db
+feme ledger-verify --db ./memory.db --all-projects
 ```
 
 ---

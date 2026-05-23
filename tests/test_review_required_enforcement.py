@@ -120,9 +120,7 @@ def test_search_excludes_pending_review_chunks(tmp_path: Path):
         project_id="p-search-chunks",
         include_pending_review=True,
     )
-    assert any(
-        r.kind == "chunk" and r.evidence_id == evidence_id for r in with_pending
-    )
+    assert any(r.kind == "chunk" and r.evidence_id == evidence_id for r in with_pending)
 
 
 def test_answer_scaffold_warns_on_pending_review(tmp_path: Path):

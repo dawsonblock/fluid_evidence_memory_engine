@@ -245,7 +245,12 @@ class RetrievalPlanner:
                           AND es.review_status IN ({placeholders})
                         LIMIT ?
                         """,
-                        (_fts_query(query), project_id, *include_review_statuses, top_k),
+                        (
+                            _fts_query(query),
+                            project_id,
+                            *include_review_statuses,
+                            top_k,
+                        ),
                     ).fetchall()
                     search_mode = "sqlite_fts"
                 except Exception:

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.2 - Review Boundary Hardening
+
+- Enforced strict pending-review filtering for chunk retrieval and context support evidence when `include_pending_review=false`.
+- Added automatic `review_actions` audit row (`pending_created`) when claims are auto-created in `pending_review` due to `review_required` source policy.
+- Added SQLite append-only ledger enforcement via update/delete triggers plus migration coverage.
+- Added `scripts/build-release-zip.sh` to produce clean release ZIPs from git-tracked files only (prevents local cache/egg-info leakage).
+- Added `feme ledger-verify --all-projects` and a no-events warning to avoid misleading zero-event project checks.
+- Bumped package/runtime/schema version metadata to `0.7.2`.
+
 ## v0.7.1 - Auth Scope Hardening
 
 - Added role-based API key scopes: viewer, reviewer, editor, admin.
