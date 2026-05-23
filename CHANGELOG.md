@@ -17,6 +17,10 @@
 - Added rollback regression coverage so timeline side-effect failures do not leave partial ingest artifacts.
 - Added per-request API auth audit tracing for protected routes (method/path, required role, resolved role, decision, detail, principal hash).
 - Added scaffold-level sentence-to-citation verification (`sentence_citation_checks`, `citation_verification`) so unsupported answer sentences are flagged before publication.
+- Enforced strict pending-review filtering for chunk retrieval and context support evidence when `include_pending_review=false`.
+- Added automatic `review_actions` audit row (`pending_created`) when claims are auto-created in `pending_review` due to `review_required` source policy.
+- Added SQLite append-only ledger enforcement via update/delete triggers plus migration coverage.
+- Added `scripts/build-release-zip.sh` to produce clean release ZIPs from git-tracked files only (prevents local cache/egg-info leakage).
 
 ## v0.7.0 - PostgreSQL Proof + Runtime Hygiene
 

@@ -393,6 +393,18 @@ CREATE TABLE IF NOT EXISTS memory_ledger (
     metadata_json TEXT NOT NULL DEFAULT '{}'
 );
 
+CREATE TRIGGER IF NOT EXISTS trg_memory_ledger_no_update
+BEFORE UPDATE ON memory_ledger
+BEGIN
+    SELECT RAISE(ABORT, 'memory_ledger is append-only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_memory_ledger_no_delete
+BEFORE DELETE ON memory_ledger
+BEGIN
+    SELECT RAISE(ABORT, 'memory_ledger is append-only');
+END;
+
 CREATE TABLE IF NOT EXISTS claim_clusters (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL DEFAULT 'default',

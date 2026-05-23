@@ -157,6 +157,12 @@ One-command Docker + live-proof run:
 bash scripts/postgres-proof.sh
 ```
 
+Create a clean release ZIP (git-tracked files only):
+
+```bash
+bash scripts/build-release-zip.sh
+```
+
 Run live PostgreSQL tests through Docker Compose:
 
 ```bash

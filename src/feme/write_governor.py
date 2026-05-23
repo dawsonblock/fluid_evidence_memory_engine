@@ -201,6 +201,36 @@ class MemoryWriteGovernor:
                     json_dumps(candidate.metadata),
                 ),
             )
+            if status == "pending_review":
+                active_con.execute(
+                    """
+                    INSERT INTO review_actions
+                    (id, claim_id, action, reviewer, before_status, after_status, reason, created_at, metadata_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        new_id("review"),
+                        claim_id,
+                        "pending_created",
+                        "system",
+                        None,
+                        "pending_review",
+                        "source type marked review_required",
+                        now,
+                        json_dumps(
+                            {
+                                "source_review_required": bool(
+                                    (candidate.metadata or {}).get(
+                                        "source_review_required"
+                                    )
+                                ),
+                                "source_type": (candidate.metadata or {}).get(
+                                    "source_type"
+                                ),
+                            }
+                        ),
+                    ),
+                )
             active_con.execute(
                 "INSERT INTO memory_claims_fts (claim_id, subject, predicate, object, claim_text) VALUES (?, ?, ?, ?, ?)",
                 (

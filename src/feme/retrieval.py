@@ -37,8 +37,16 @@ class RetrievalPlanner:
             top_k=top_k * 2,
             include_statuses=include_statuses,
         )
+        include_review_statuses = (
+            ("active", "pending_review")
+            if "pending_review" in include_statuses
+            else ("active",)
+        )
         chunk_results = self._search_chunks(
-            query, project_id=project_id, top_k=top_k * 2
+            query,
+            project_id=project_id,
+            top_k=top_k * 2,
+            include_review_statuses=include_review_statuses,
         )
         merged_raw = _dedupe_results(
             sorted(claim_results + chunk_results, key=lambda r: r.score, reverse=True)
@@ -193,26 +201,33 @@ class RetrievalPlanner:
         return sorted(out, key=lambda r: r.score, reverse=True)[:top_k]
 
     def _search_chunks(
-        self, query: str, *, project_id: str, top_k: int
+        self,
+        query: str,
+        *,
+        project_id: str,
+        top_k: int,
+        include_review_statuses: tuple[str, ...] = ("active", "pending_review"),
     ) -> list[RetrievalResult]:
         qvec = self.embedder.embed(query)
         backend = "postgres" if _is_postgres(self.db) else "sqlite"
         search_mode = "lexical_fallback"
+        placeholders = ",".join("?" for _ in include_review_statuses)
         with self.db.connect() as con:
             fts_rows = []
             if _is_postgres(self.db):
                 try:
                     fts_rows = con.execute(
-                        """
+                        f"""
                         SELECT tc.id, ts_rank_cd(tc.chunk_tsv, websearch_to_tsquery('english', ?)) AS pg_rank
                         FROM text_chunks tc
                         JOIN evidence_sources es ON es.id = tc.evidence_id
                         WHERE es.project_id = ?
+                          AND es.review_status IN ({placeholders})
                           AND tc.chunk_tsv @@ websearch_to_tsquery('english', ?)
                         ORDER BY pg_rank DESC
                         LIMIT ?
                         """,
-                        (query, project_id, query, top_k),
+                        (query, project_id, *include_review_statuses, query, top_k),
                     ).fetchall()
                     search_mode = "postgres_fts"
                 except Exception:
@@ -220,29 +235,32 @@ class RetrievalPlanner:
             else:
                 try:
                     fts_rows = con.execute(
-                        """
+                        f"""
                         SELECT tc.*, es.project_id, bm25(text_chunks_fts) AS bm25_score
                         FROM text_chunks_fts
                         JOIN text_chunks tc ON tc.id = text_chunks_fts.chunk_id
                         JOIN evidence_sources es ON es.id = tc.evidence_id
-                        WHERE text_chunks_fts MATCH ? AND es.project_id = ?
+                        WHERE text_chunks_fts MATCH ?
+                          AND es.project_id = ?
+                          AND es.review_status IN ({placeholders})
                         LIMIT ?
                         """,
-                        (_fts_query(query), project_id, top_k),
+                        (_fts_query(query), project_id, *include_review_statuses, top_k),
                     ).fetchall()
                     search_mode = "sqlite_fts"
                 except Exception:
                     fts_rows = []
             all_rows = con.execute(
-                """
+                f"""
                 SELECT tc.*, e.vector_json, es.project_id, es.source_type, es.title
                 FROM text_chunks tc
                 JOIN evidence_sources es ON es.id = tc.evidence_id
                 LEFT JOIN embeddings e ON e.owner_type = 'chunk' AND e.owner_id = tc.id
                 WHERE es.project_id = ?
+                  AND es.review_status IN ({placeholders})
                 LIMIT 1000
                 """,
-                (project_id,),
+                (project_id, *include_review_statuses),
             ).fetchall()
         if _is_postgres(self.db):
             keyword_ids = {

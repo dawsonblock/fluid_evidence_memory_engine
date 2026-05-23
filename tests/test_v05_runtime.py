@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from feme.claim_canonicalizer import ClaimCanonicalizer
 from feme.db import Database
 from feme.ledger import MemoryLedger
@@ -67,3 +69,28 @@ def test_retrieval_eval_suite(tmp_path: Path):
     result = suite.run()
     assert result["case_count"] == 1
     assert result["passed"] == 1
+
+
+def test_sqlite_ledger_is_append_only(tmp_path: Path):
+    db = _db(tmp_path)
+    item = MemoryLedger(db).append(
+        event_type="append_only_test",
+        object_type="unit",
+        object_id="immutable",
+        project_id="default",
+        actor="pytest",
+        after={"ok": True},
+    )
+
+    with db.connect() as con:
+        with pytest.raises(Exception, match="append-only"):
+            con.execute(
+                "UPDATE memory_ledger SET reason = ? WHERE id = ?",
+                ("mutate", item["id"]),
+            )
+            con.commit()
+
+    with db.connect() as con:
+        with pytest.raises(Exception, match="append-only"):
+            con.execute("DELETE FROM memory_ledger WHERE id = ?", (item["id"],))
+            con.commit()

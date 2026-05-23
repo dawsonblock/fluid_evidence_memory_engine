@@ -101,6 +101,30 @@ def test_search_can_exclude_pending_review_claims(tmp_path: Path):
     assert any(r.claim_id == claim_id for r in with_pending)
 
 
+def test_search_excludes_pending_review_chunks(tmp_path: Path):
+    db = _db(tmp_path)
+    evidence_id = _ingest_review_required_evidence(db, project_id="p-search-chunks")
+
+    without_pending = RetrievalPlanner(db).search(
+        "canonical database",
+        project_id="p-search-chunks",
+        include_pending_review=False,
+    )
+    assert all(
+        not (r.kind == "chunk" and r.evidence_id == evidence_id)
+        for r in without_pending
+    )
+
+    with_pending = RetrievalPlanner(db).search(
+        "canonical database",
+        project_id="p-search-chunks",
+        include_pending_review=True,
+    )
+    assert any(
+        r.kind == "chunk" and r.evidence_id == evidence_id for r in with_pending
+    )
+
+
 def test_answer_scaffold_warns_on_pending_review(tmp_path: Path):
     db = _db(tmp_path)
     _ingest_review_required_claim(db, project_id="p-answer")
@@ -113,6 +137,29 @@ def test_answer_scaffold_warns_on_pending_review(tmp_path: Path):
     warning_text = "\n".join(scaffold["warnings"]).lower()
     assert "pending" in warning_text
     assert "review" in warning_text
+
+
+def test_pending_review_creation_writes_review_action(tmp_path: Path):
+    db = _db(tmp_path)
+    claim_id = _ingest_review_required_claim(db, project_id="p-review-action")
+
+    with db.connect() as con:
+        row = con.execute(
+            """
+            SELECT action, reviewer, before_status, after_status, reason
+            FROM review_actions
+            WHERE claim_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (claim_id,),
+        ).fetchone()
+    assert row
+    assert row["action"] == "pending_created"
+    assert row["reviewer"] == "system"
+    assert row["before_status"] is None
+    assert row["after_status"] == "pending_review"
+    assert "review_required" in row["reason"]
 
 
 def test_review_evidence_updates_status_and_audits(tmp_path: Path):
@@ -171,7 +218,12 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
             },
         )
         assert search.status_code == 200
-        assert all(item["claim_id"] != claim_id for item in search.json())
+        search_payload = search.json()
+        assert all(item["claim_id"] != claim_id for item in search_payload)
+        assert all(
+            not (item.get("kind") == "chunk" and item.get("evidence_id") == evidence_id)
+            for item in search_payload
+        )
 
         search_with_pending = client.post(
             "/search",

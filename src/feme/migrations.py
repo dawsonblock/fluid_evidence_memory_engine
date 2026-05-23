@@ -142,6 +142,20 @@ CREATE TABLE IF NOT EXISTS api_request_audit (
 CREATE INDEX IF NOT EXISTS idx_api_request_audit_created ON api_request_audit(created_at);
 """
 
+V12_SQLITE_LEDGER_IMMUTABLE_SQL = """
+CREATE TRIGGER IF NOT EXISTS trg_memory_ledger_no_update
+BEFORE UPDATE ON memory_ledger
+BEGIN
+    SELECT RAISE(ABORT, 'memory_ledger is append-only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_memory_ledger_no_delete
+BEFORE DELETE ON memory_ledger
+BEGIN
+    SELECT RAISE(ABORT, 'memory_ledger is append-only');
+END;
+"""
+
 
 class MigrationManager:
     def __init__(self, db: Database):
@@ -211,6 +225,19 @@ class MigrationManager:
                     name="v0.7.1 api request auth audit",
                     checksum=hashlib.sha256(
                         V11_API_REQUEST_AUDIT_SQL.encode("utf-8")
+                    ).hexdigest(),
+                    applied=applied,
+                )
+
+            if backend == "sqlite" and self._try_executescript(
+                con, V12_SQLITE_LEDGER_IMMUTABLE_SQL
+            ):
+                self._record_migration(
+                    con,
+                    migration_id="012_sqlite_ledger_immutable",
+                    name="v0.7.2 sqlite ledger append-only trigger",
+                    checksum=hashlib.sha256(
+                        V12_SQLITE_LEDGER_IMMUTABLE_SQL.encode("utf-8")
                     ).hexdigest(),
                     applied=applied,
                 )

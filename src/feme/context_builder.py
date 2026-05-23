@@ -45,7 +45,10 @@ class ContextBuilder:
             item = result.model_dump()
             item["estimated_tokens"] = estimate
             if result.kind == "claim" and result.claim_id:
-                item["supporting_evidence"] = self._supporting_evidence(result.claim_id)
+                item["supporting_evidence"] = self._supporting_evidence(
+                    result.claim_id,
+                    include_pending_review=include_pending_review,
+                )
                 item["contradictions"] = self._contradictions(result.claim_id)
                 status = item["metadata"].get("status")
                 if status == "disputed":
@@ -67,7 +70,20 @@ class ContextBuilder:
                 except Exception:
                     item["provenance_trace"] = None
             if result.kind == "chunk" and result.evidence_id:
-                item["source"] = self._evidence_source(result.evidence_id)
+                item["source"] = self._evidence_source(
+                    result.evidence_id,
+                    include_pending_review=include_pending_review,
+                )
+                if item["source"] is None and not include_pending_review:
+                    excluded.append(
+                        {
+                            "id": result.id,
+                            "kind": result.kind,
+                            "reason": "pending_review_evidence_excluded",
+                            "estimated_tokens": estimate,
+                        }
+                    )
+                    continue
             included.append(item)
             used_tokens += estimate
         risk_summary = self._risk_summary(included)
@@ -87,10 +103,16 @@ class ContextBuilder:
         self._audit(question, packet)
         return packet
 
-    def _supporting_evidence(self, claim_id: str) -> list[dict]:
+    def _supporting_evidence(
+        self,
+        claim_id: str,
+        *,
+        include_pending_review: bool,
+    ) -> list[dict]:
+        review_clause = "" if include_pending_review else " AND e.review_status = 'active'"
         with self.db.connect() as con:
             exact_rows = con.execute(
-                """
+                f"""
                 SELECT s.id AS support_span_id,
                        s.claim_id,
                        s.evidence_id,
@@ -111,6 +133,7 @@ class ContextBuilder:
                 FROM claim_support_spans s
                 JOIN evidence_sources e ON e.id = s.evidence_id
                 WHERE s.claim_id = ?
+                {review_clause}
                 ORDER BY s.created_at DESC
                 """,
                 (claim_id,),
@@ -119,13 +142,14 @@ class ContextBuilder:
                 return [dict(row) for row in exact_rows]
 
             rows = con.execute(
-                """
+                f"""
                 SELECT l.*, e.title, e.source_type, e.source_uri, e.sha256, s.text AS span_text,
                        s.char_start, s.char_end, s.token_start, s.token_end
                 FROM claim_evidence_links l
                 JOIN evidence_sources e ON e.id = l.evidence_id
                 LEFT JOIN token_spans s ON s.id = l.span_id
                 WHERE l.claim_id = ?
+                {review_clause}
                 ORDER BY l.created_at DESC
                 """,
                 (claim_id,),
@@ -144,10 +168,17 @@ class ContextBuilder:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def _evidence_source(self, evidence_id: str) -> dict | None:
+    def _evidence_source(
+        self,
+        evidence_id: str,
+        *,
+        include_pending_review: bool,
+    ) -> dict | None:
+        review_clause = "" if include_pending_review else " AND review_status = 'active'"
         with self.db.connect() as con:
             row = con.execute(
-                "SELECT * FROM evidence_sources WHERE id = ?", (evidence_id,)
+                f"SELECT * FROM evidence_sources WHERE id = ?{review_clause}",
+                (evidence_id,),
             ).fetchone()
         return dict(row) if row else None
 

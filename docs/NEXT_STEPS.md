@@ -76,3 +76,4 @@ The hashing embedder is deterministic and offline, but weak. Replace with a loca
 3. Add queue-backed ingestion workers for PDFs/HTML/legal XML/source snapshots.
 4. Add auth-audit anomaly reporting (invalid-key spikes, denied-scope hotspots, unusual route access patterns).
 5. Enforce citation-verification gates in downstream UI/publication workflows.
+6. Add explicit retrieval modes (`internal` vs `public`) to control unreviewed evidence visibility policy.

@@ -1,4 +1,4 @@
-# PostgreSQL Proof - FEME v0.7.0
+# PostgreSQL Proof - FEME v0.7.1
 
 ## Environment
 
@@ -26,7 +26,7 @@ bash scripts/postgres-proof.sh
 ## Result
 
 - `python3.10 -m pytest -q tests/test_v07_postgres_live_integration.py` with Docker Postgres + DSN set -> `10 passed`
-- `python3.10 -m pytest -q` with Postgres env enabled -> `48 passed`
+- `python3.10 -m pytest -q` local default environment -> `51 passed, 10 skipped`
 - default-env suite remains skip-safe when DSN/psycopg are unavailable
 
 ## Proven
@@ -46,7 +46,7 @@ bash scripts/postgres-proof.sh
 - high-concurrency ingestion at production load
 - large-scale retrieval benchmarking
 - pgvector semantic search
-- full role-based access control
+- full user/session RBAC (current release provides scoped API-key authorization roles)
 
 ## Notes
 
