@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.4 - Extractor Audit Persistence + Runtime Wiring
+
+- Added durable extractor audit persistence via `extractor_audit` table (SQLite/PostgreSQL schema + migration).
+- Wired `extractor_mode` and `extractor_provider` through API ingest endpoints, CLI ingest commands, and governed runtime ingestion pipeline.
+- Added per-chunk extraction audit events capturing mode/provider, outcome, candidate count, and diagnostic detail.
+- Preserved strict extractor semantics (`json_strict` fail-closed, fallback mode remains deterministic).
+- Bumped package/runtime/schema metadata to `0.7.4`.
+
 ## v0.7.3 - Verification Boundary + Extractor Hardening
 
 - Fixed `/verify` retrieval boundary leakage by wiring `retrieval_mode` and `include_pending_review` into verification context construction.

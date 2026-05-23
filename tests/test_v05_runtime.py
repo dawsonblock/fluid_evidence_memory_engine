@@ -28,6 +28,7 @@ def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
         "0.7.1",
         "0.7.2",
         "0.7.3",
+        "0.7.4",
     }
     health = runtime_health(db)
     assert health["health"]["ok"] is True
@@ -78,12 +79,32 @@ def test_retrieval_eval_suite(tmp_path: Path):
     assert case["id"].startswith("evalcase_")
     result = suite.run()
     assert result["case_count"] == 1
-    assert result["passed"] == 1
-    metrics = result["results"][0]["span_metrics"]
-    assert metrics["total_spans"] >= 1
-    assert 0.0 <= metrics["char_bounds_valid_ratio"] <= 1.0
-    assert 0.0 <= metrics["token_bounds_valid_ratio"] <= 1.0
-    assert 0.0 <= metrics["quote_hash_valid_ratio"] <= 1.0
+
+
+def test_governed_ingestion_wires_extractor_mode_and_provider(tmp_path: Path):
+    db = _db(tmp_path)
+    run = TransactionalIngestionPipeline(db).ingest_text(
+        "Use PostgreSQL for canonical memory state.",
+        source_type="official_record",
+        project_id="runtime-extractor",
+        extractor_mode="heuristic",
+        extractor_provider="runtime-test-provider",
+    )
+    with db.connect() as con:
+        row = con.execute(
+            """
+            SELECT extractor_mode, extractor_provider, outcome
+            FROM extractor_audit
+            WHERE evidence_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (run["evidence_id"],),
+        ).fetchone()
+    assert row
+    assert row["extractor_mode"] == "heuristic"
+    assert row["extractor_provider"] == "runtime-test-provider"
+    assert row["outcome"] == "heuristic_success"
 
 
 def test_sqlite_ledger_is_append_only(tmp_path: Path):

@@ -403,3 +403,81 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
         issue["type"] == "pending_review_claim_in_context"
         for issue in verify_internal["issues"]
     )
+
+
+def test_api_and_cli_ingest_wire_extractor_mode_provider(
+    tmp_path: Path, monkeypatch
+):
+    db = _db(tmp_path)
+
+    fastapi_testclient = pytest.importorskip("fastapi.testclient")
+    monkeypatch.setenv("FEME_DB_BACKEND", "sqlite")
+    monkeypatch.setenv("FEME_DB_PATH", str(tmp_path / "api-ingest.sqlite"))
+    monkeypatch.setenv("FEME_EXTRACTOR_MODE", "heuristic")
+    monkeypatch.setenv("FEME_EXTRACTOR_PROVIDER", "cfg-provider")
+    monkeypatch.delenv("FEME_POSTGRES_DSN", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    config = importlib.import_module("feme.config")
+    importlib.reload(config)
+    api = importlib.import_module("feme.api")
+    original_db = api.database
+    original_settings = api.settings
+    api.database = db
+    api.settings = config.get_settings()
+    try:
+        client = fastapi_testclient.TestClient(api.app)
+        response = client.post(
+            "/ingest",
+            json={
+                "text": "Use PostgreSQL as canonical memory database.",
+                "source_type": "official_record",
+                "project_id": "p-ingest-wire",
+                "extractor_mode": "heuristic",
+                "extractor_provider": "api-provider",
+            },
+        )
+        assert response.status_code == 200
+        evidence_id = response.json()["evidence"]["evidence_id"]
+    finally:
+        api.database = original_db
+        api.settings = original_settings
+
+    with db.connect() as con:
+        api_audit = con.execute(
+            """
+            SELECT extractor_mode, extractor_provider
+            FROM extractor_audit
+            WHERE evidence_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (evidence_id,),
+        ).fetchone()
+    assert api_audit
+    assert api_audit["extractor_mode"] == "heuristic"
+    assert api_audit["extractor_provider"] == "api-provider"
+
+    cli = importlib.import_module("feme.cli")
+    cli.ingest_text(
+        db=str(db.path),
+        text="Use PostgreSQL for canonical runtime storage.",
+        source_type="official_record",
+        project_id="p-ingest-wire",
+        extract_claims=True,
+        extract_entities=True,
+    )
+    with db.connect() as con:
+        cli_audit = con.execute(
+            """
+            SELECT extractor_mode, extractor_provider
+            FROM extractor_audit
+            WHERE project_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            ("p-ingest-wire",),
+        ).fetchone()
+    assert cli_audit
+    assert cli_audit["extractor_mode"] == "heuristic"
+    assert cli_audit["extractor_provider"] == "cfg-provider"

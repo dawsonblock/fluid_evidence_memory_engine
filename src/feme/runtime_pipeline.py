@@ -34,6 +34,8 @@ class TransactionalIngestionPipeline:
         actor: str | None = None,
         extract_claims: bool = True,
         rebuild_clusters: bool = True,
+        extractor_mode: str = "json_with_fallback",
+        extractor_provider: str | None = None,
     ) -> dict:
         ProjectManager(self.db).ensure(project_id)
         run_id = new_id("run")
@@ -98,7 +100,11 @@ class TransactionalIngestionPipeline:
                     governor = MemoryWriteGovernor(self.db)
                     contradiction_engine = ContradictionEngine(self.db)
                     candidates = extract_candidates_for_evidence(
-                        self.db, evidence_id, con=con
+                        self.db,
+                        evidence_id,
+                        extractor_mode=extractor_mode,
+                        extractor_provider=extractor_provider,
+                        con=con,
                     )
                     for candidate in candidates:
                         write = governor.commit_candidate(

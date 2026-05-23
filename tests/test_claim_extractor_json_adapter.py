@@ -305,3 +305,118 @@ def test_json_adapter_works_in_extract_for_evidence(tmp_path: Path):
     )
     assert candidates
     assert candidates[0].metadata["extractor"] == "json-adapter-v1"
+
+
+def test_extract_for_evidence_persists_structured_success_audit(tmp_path: Path):
+    db = _db(tmp_path)
+    evidence = EvidenceIngestor(db).ingest_text(
+        "Claims must link to exact evidence spans.",
+        source_type="official_record",
+    )
+
+    def _json_extractor(_text: str, _chunk: dict) -> dict:
+        return {
+            "claims": [
+                {
+                    "subject": "Claims",
+                    "predicate": "must_link_to",
+                    "object": "exact evidence spans",
+                    "claim_text": "Claims must link to exact evidence spans.",
+                    "support_char_start": 0,
+                    "support_char_end": 40,
+                }
+            ]
+        }
+
+    extract_candidates_for_evidence(
+        db,
+        evidence["evidence_id"],
+        json_claim_extractor=_json_extractor,
+        extractor_mode="json_with_fallback",
+        extractor_provider="json-provider-test",
+    )
+
+    with db.connect() as con:
+        audit = con.execute(
+            """
+            SELECT extractor_mode, extractor_provider, outcome, candidate_count
+            FROM extractor_audit
+            WHERE evidence_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (evidence["evidence_id"],),
+        ).fetchone()
+    assert audit
+    assert audit["extractor_mode"] == "json_with_fallback"
+    assert audit["extractor_provider"] == "json-provider-test"
+    assert audit["outcome"] == "structured_success"
+    assert int(audit["candidate_count"]) >= 1
+
+
+def test_extract_for_evidence_persists_fallback_audit_on_error(tmp_path: Path):
+    db = _db(tmp_path)
+    evidence = EvidenceIngestor(db).ingest_text(
+        "Memory engine must use PostgreSQL as canonical database.",
+        source_type="official_record",
+    )
+
+    def _boom(_text: str, _chunk: dict) -> dict:
+        raise RuntimeError("extractor unavailable")
+
+    candidates = extract_candidates_for_evidence(
+        db,
+        evidence["evidence_id"],
+        json_claim_extractor=_boom,
+        extractor_mode="json_with_fallback",
+        extractor_provider="json-provider-test",
+    )
+    assert candidates
+    with db.connect() as con:
+        audit = con.execute(
+            """
+            SELECT outcome, detail
+            FROM extractor_audit
+            WHERE evidence_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (evidence["evidence_id"],),
+        ).fetchone()
+    assert audit
+    assert audit["outcome"] == "heuristic_fallback"
+    assert "structured_error:RuntimeError" in audit["detail"]
+
+
+def test_extract_for_evidence_persists_strict_reject_audit(tmp_path: Path):
+    db = _db(tmp_path)
+    evidence = EvidenceIngestor(db).ingest_text(
+        "Memory engine must use PostgreSQL as canonical database.",
+        source_type="official_record",
+    )
+
+    def _invalid_payload(_text: str, _chunk: dict) -> dict:
+        return {"claims": [{"subject": "x"}]}
+
+    candidates = extract_candidates_for_evidence(
+        db,
+        evidence["evidence_id"],
+        json_claim_extractor=_invalid_payload,
+        extractor_mode="json_strict",
+        extractor_provider="json-provider-test",
+    )
+    assert candidates == []
+    with db.connect() as con:
+        audit = con.execute(
+            """
+            SELECT outcome, candidate_count
+            FROM extractor_audit
+            WHERE evidence_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (evidence["evidence_id"],),
+        ).fetchone()
+    assert audit
+    assert audit["outcome"] == "strict_rejected"
+    assert int(audit["candidate_count"]) == 0

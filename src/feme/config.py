@@ -19,6 +19,8 @@ class Settings:
     tokenizer: str = os.getenv("FEME_TOKENIZER", "fallback")
     max_chunk_tokens: int = int(os.getenv("FEME_MAX_CHUNK_TOKENS", "900"))
     chunk_overlap_tokens: int = int(os.getenv("FEME_CHUNK_OVERLAP_TOKENS", "120"))
+    extractor_mode: str = os.getenv("FEME_EXTRACTOR_MODE", "json_with_fallback")
+    extractor_provider: str = os.getenv("FEME_EXTRACTOR_PROVIDER", "heuristic")
     api_auth_required: bool = _as_bool(os.getenv("FEME_API_AUTH_REQUIRED"), False)
     api_key_readonly: str = os.getenv("FEME_API_KEY_READONLY", "")
     api_key_viewer: str = os.getenv(

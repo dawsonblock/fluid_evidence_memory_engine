@@ -8,6 +8,7 @@ from .db import Database
 from .models import ClaimCandidate, MemoryLevel, MemoryType
 from .policy import MemoryPolicy
 from .token_trace import Tokenizer
+from .utils import json_dumps, new_id, now_iso
 
 EXPLICIT_MARKERS = [
     "remember",
@@ -69,12 +70,32 @@ def extract_candidates_from_chunk(
     policy: MemoryPolicy | None = None,
     *,
     json_claim_extractor: JsonClaimExtractor | None = None,
-    extractor_mode: ExtractorMode = "json_with_fallback",
+    extractor_mode: str = "json_with_fallback",
+    extractor_provider: str | None = None,
 ) -> list[ClaimCandidate]:
+    candidates, _, _ = _extract_candidates_with_status(
+        chunk,
+        policy=policy,
+        json_claim_extractor=json_claim_extractor,
+        extractor_mode=extractor_mode,
+        extractor_provider=extractor_provider,
+    )
+    return candidates
+
+
+def _extract_candidates_with_status(
+    chunk: dict,
+    policy: MemoryPolicy | None = None,
+    *,
+    json_claim_extractor: JsonClaimExtractor | None = None,
+    extractor_mode: str = "json_with_fallback",
+    extractor_provider: str | None = None,
+) -> tuple[list[ClaimCandidate], str, str | None]:
     policy = policy or MemoryPolicy.default()
     text = str(chunk.get("text") or "")
+    provider_label = _resolve_provider_label(extractor_provider, extractor_mode)
     if not text:
-        return []
+        return [], "structured_empty", "chunk_text_empty"
 
     if extractor_mode not in {"heuristic", "json_with_fallback", "json_strict"}:
         extractor_mode = "json_with_fallback"
@@ -82,17 +103,58 @@ def extract_candidates_from_chunk(
     if extractor_mode != "heuristic" and json_claim_extractor is not None:
         try:
             payload = json_claim_extractor(text, dict(chunk))
-            structured = _structured_candidates_from_json(payload, dict(chunk), policy)
+            structured = _structured_candidates_from_json(
+                payload,
+                dict(chunk),
+                policy,
+                extractor_provider=provider_label,
+            )
             if structured:
-                return structured
+                return structured, "structured_success", None
             if extractor_mode == "json_strict":
-                return []
-        except Exception:
+                return [], "strict_rejected", "structured_empty"
+        except Exception as exc:
             if extractor_mode == "json_strict":
-                return []
+                return [], "strict_rejected", f"structured_error:{exc.__class__.__name__}"
             # Structured extraction is optional; fall back to deterministic heuristics.
-            pass
+            heuristic = _heuristic_candidates(
+                text,
+                chunk,
+                policy,
+                extractor_provider=provider_label,
+            )
+            return (
+                heuristic,
+                "heuristic_fallback",
+                f"structured_error:{exc.__class__.__name__}",
+            )
 
+        heuristic = _heuristic_candidates(
+            text,
+            chunk,
+            policy,
+            extractor_provider=provider_label,
+        )
+        return heuristic, "heuristic_fallback", "structured_empty"
+
+    heuristic = _heuristic_candidates(
+        text,
+        chunk,
+        policy,
+        extractor_provider=provider_label,
+    )
+    if extractor_mode == "heuristic":
+        return heuristic, "heuristic_success", None
+    return heuristic, "heuristic_fallback", "structured_extractor_unavailable"
+
+
+def _heuristic_candidates(
+    text: str,
+    chunk: dict,
+    policy: MemoryPolicy,
+    *,
+    extractor_provider: str,
+) -> list[ClaimCandidate]:
     sentences = _sentence_spans(text)
     tokenized = Tokenizer().tokenize(text)
     out: list[ClaimCandidate] = []
@@ -110,6 +172,7 @@ def extract_candidates_from_chunk(
             support_char_end=char_end,
             support_token_start=token_start,
             support_token_end=token_end,
+            extractor_provider=extractor_provider,
         )
         if candidate:
             out.append(candidate)
@@ -121,7 +184,8 @@ def extract_candidates_for_evidence(
     evidence_id: str,
     policy: MemoryPolicy | None = None,
     json_claim_extractor: JsonClaimExtractor | None = None,
-    extractor_mode: ExtractorMode = "json_with_fallback",
+    extractor_mode: str = "json_with_fallback",
+    extractor_provider: str | None = None,
     *,
     con=None,
 ) -> list[ClaimCandidate]:
@@ -129,7 +193,12 @@ def extract_candidates_for_evidence(
         with db.connect() as con2:
             rows = con2.execute(
                 """
-                SELECT tc.*, ts.id AS span_id, es.source_type, sr.review_required
+                SELECT
+                    tc.*,
+                    ts.id AS span_id,
+                    es.source_type,
+                    es.project_id,
+                    sr.review_required
                 FROM text_chunks tc
                 LEFT JOIN token_spans ts ON ts.chunk_id = tc.id
                 LEFT JOIN evidence_sources es ON es.id = tc.evidence_id
@@ -143,7 +212,12 @@ def extract_candidates_for_evidence(
     else:
         rows = con.execute(
             """
-            SELECT tc.*, ts.id AS span_id, es.source_type, sr.review_required
+            SELECT
+                tc.*,
+                ts.id AS span_id,
+                es.source_type,
+                es.project_id,
+                sr.review_required
             FROM text_chunks tc
             LEFT JOIN token_spans ts ON ts.chunk_id = tc.id
             LEFT JOIN evidence_sources es ON es.id = tc.evidence_id
@@ -156,14 +230,28 @@ def extract_candidates_for_evidence(
         ).fetchall()
     candidates: list[ClaimCandidate] = []
     for row in rows:
-        candidates.extend(
-            extract_candidates_from_chunk(
-                dict(row),
-                policy=policy,
-                json_claim_extractor=json_claim_extractor,
-                extractor_mode=extractor_mode,
-            )
+        chunk = dict(row)
+        chunk_candidates, outcome, detail = _extract_candidates_with_status(
+            chunk,
+            policy=policy,
+            json_claim_extractor=json_claim_extractor,
+            extractor_mode=extractor_mode,
+            extractor_provider=extractor_provider,
         )
+        _persist_extractor_audit(
+            db,
+            chunk=chunk,
+            extractor_mode=extractor_mode,
+            extractor_provider=_resolve_provider_label(
+                extractor_provider,
+                extractor_mode,
+            ),
+            outcome=outcome,
+            candidate_count=len(chunk_candidates),
+            detail=detail,
+            con=con,
+        )
+        candidates.extend(chunk_candidates)
     return candidates
 
 
@@ -171,6 +259,8 @@ def _structured_candidates_from_json(
     payload: dict[str, Any] | list[dict[str, Any]],
     chunk: dict[str, Any],
     policy: MemoryPolicy,
+    *,
+    extractor_provider: str,
 ) -> list[ClaimCandidate]:
     entries = _normalize_json_candidates_payload(payload)
     if not entries:
@@ -187,6 +277,7 @@ def _structured_candidates_from_json(
             chunk_text=chunk_text,
             tokenized=tokenized,
             policy=policy,
+            extractor_provider=extractor_provider,
         )
         if candidate is not None:
             out.append(candidate)
@@ -214,6 +305,7 @@ def _candidate_from_structured_json(
     chunk_text: str,
     tokenized,
     policy: MemoryPolicy,
+    extractor_provider: str,
 ) -> ClaimCandidate | None:
     subject = _required_str(entry, "subject")
     predicate = _required_str(entry, "predicate")
@@ -264,6 +356,7 @@ def _candidate_from_structured_json(
     metadata.update(
         {
             "extractor": "json-adapter-v1",
+            "extractor_provider": extractor_provider,
             "structured_json": True,
             "chunk_index": chunk.get("chunk_index"),
             "source_type": chunk.get("source_type"),
@@ -392,6 +485,7 @@ def _sentence_to_candidate(
     support_char_end: int | None = None,
     support_token_start: int | None = None,
     support_token_end: int | None = None,
+    extractor_provider: str = "heuristic",
 ) -> ClaimCandidate | None:
     lowered = sentence.lower()
     explicitness = 1.0 if any(m in lowered for m in EXPLICIT_MARKERS) else 0.2
@@ -501,6 +595,7 @@ def _sentence_to_candidate(
         support_quote_text=sentence,
         metadata={
             "extractor": "heuristic-v2",
+            "extractor_provider": extractor_provider,
             "chunk_index": chunk.get("chunk_index"),
             "source_type": chunk.get("source_type"),
             "source_review_required": bool(chunk.get("review_required", 0)),
@@ -516,6 +611,74 @@ def _sentence_to_candidate(
 def _guess_subject(sentence: str) -> str:
     words = sentence.split()
     return " ".join(words[: min(6, len(words))])
+
+
+def _resolve_provider_label(
+    extractor_provider: str | None,
+    extractor_mode: str,
+) -> str:
+    if isinstance(extractor_provider, str) and extractor_provider.strip():
+        return extractor_provider.strip()
+    if extractor_mode == "heuristic":
+        return "heuristic"
+    return "structured"
+
+
+def _persist_extractor_audit(
+    db: Database,
+    *,
+    chunk: dict[str, Any],
+    extractor_mode: str,
+    extractor_provider: str,
+    outcome: str,
+    candidate_count: int,
+    detail: str | None,
+    con=None,
+) -> None:
+    metadata = {
+        "chunk_index": chunk.get("chunk_index"),
+        "source_type": chunk.get("source_type"),
+        "review_required": bool(chunk.get("review_required", 0)),
+    }
+    params = (
+        new_id("exaudit"),
+        chunk.get("project_id") or "default",
+        chunk.get("evidence_id"),
+        chunk.get("id"),
+        extractor_mode,
+        extractor_provider,
+        outcome,
+        candidate_count,
+        detail or "",
+        json_dumps(metadata),
+        now_iso(),
+    )
+    sql = """
+        INSERT INTO extractor_audit (
+            id,
+            project_id,
+            evidence_id,
+            chunk_id,
+            extractor_mode,
+            extractor_provider,
+            outcome,
+            candidate_count,
+            detail,
+            metadata_json,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    try:
+        if con is not None:
+            con.execute(sql, params)
+            return
+        with db.connect() as con2:
+            con2.execute(sql, params)
+            con2.commit()
+    except Exception:
+        # Extraction must remain available even if audit persistence is unavailable.
+        return
 
 
 def _token_range_for_char_span(

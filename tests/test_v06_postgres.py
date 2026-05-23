@@ -7,6 +7,7 @@ from feme.migrations import (
     V07_POSTGRES_NATIVE_FTS_SQL,
     V08_POSTGRES_LEDGER_IMMUTABLE_SQL,
     V09_EVIDENCE_DEDUP_INDEX_SQL,
+    V13_EXTRACTOR_AUDIT_SQL,
 )
 from feme.runtime import make_database
 from feme.postgres_db import PostgresDatabase
@@ -105,3 +106,10 @@ def test_v09_evidence_dedup_unique_index_sql_contains_expected_artifacts():
         in V09_EVIDENCE_DEDUP_INDEX_SQL
     )
     assert "evidence_sources(project_id, sha256)" in V09_EVIDENCE_DEDUP_INDEX_SQL
+
+
+def test_v13_extractor_audit_sql_contains_expected_artifacts():
+    assert "CREATE TABLE IF NOT EXISTS extractor_audit" in V13_EXTRACTOR_AUDIT_SQL
+    assert "extractor_mode TEXT NOT NULL" in V13_EXTRACTOR_AUDIT_SQL
+    assert "extractor_provider TEXT NOT NULL" in V13_EXTRACTOR_AUDIT_SQL
+    assert "idx_extractor_audit_evidence" in V13_EXTRACTOR_AUDIT_SQL

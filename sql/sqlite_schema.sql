@@ -191,6 +191,20 @@ CREATE TABLE IF NOT EXISTS api_request_audit (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS extractor_audit (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL DEFAULT 'default',
+    evidence_id TEXT NOT NULL REFERENCES evidence_sources(id) ON DELETE CASCADE,
+    chunk_id TEXT REFERENCES text_chunks(id) ON DELETE SET NULL,
+    extractor_mode TEXT NOT NULL,
+    extractor_provider TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    candidate_count INTEGER NOT NULL DEFAULT 0,
+    detail TEXT NOT NULL DEFAULT '',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS lifecycle_events (
     id TEXT PRIMARY KEY,
     claim_id TEXT NOT NULL REFERENCES memory_claims(id) ON DELETE CASCADE,
@@ -220,6 +234,9 @@ CREATE INDEX IF NOT EXISTS idx_entities_norm ON entities(normalized_name, entity
 CREATE INDEX IF NOT EXISTS idx_mentions_entity ON entity_mentions(entity_id);
 CREATE INDEX IF NOT EXISTS idx_lifecycle_claim ON lifecycle_events(claim_id);
 CREATE INDEX IF NOT EXISTS idx_api_request_audit_created ON api_request_audit(created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_created ON extractor_audit(created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_project ON extractor_audit(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_evidence ON extractor_audit(evidence_id, created_at);
 
 -- v0.3 governance, review, integrity, and provenance extensions
 CREATE TABLE IF NOT EXISTS schema_meta (

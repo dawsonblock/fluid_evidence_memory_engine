@@ -66,8 +66,33 @@ def ingest_text(
     project_id: str = typer.Option("default"),
     extract_claims: bool = typer.Option(True),
     extract_entities: bool = typer.Option(True),
+    extractor_mode: str | None = typer.Option(
+        None,
+        help="Extractor mode: heuristic, json_with_fallback, or json_strict",
+    ),
+    extractor_provider: str | None = typer.Option(
+        None,
+        help="Extractor provider label written to extraction audit",
+    ),
     vault_root: str = typer.Option(None, help="Optional raw file vault directory"),
 ):
+    settings = get_settings()
+    if not isinstance(text, str):
+        text = None
+    if not isinstance(path, str):
+        path = None
+    if not isinstance(source_type, str):
+        source_type = "note"
+    if not isinstance(title, str):
+        title = None
+    if not isinstance(project_id, str):
+        project_id = "default"
+    if not isinstance(vault_root, str):
+        vault_root = None
+    if not isinstance(extractor_mode, str):
+        extractor_mode = settings.extractor_mode
+    if not isinstance(extractor_provider, str):
+        extractor_provider = settings.extractor_provider
     database = _db(db)
     database.init()
     ingestor = EvidenceIngestor(database)
@@ -95,7 +120,12 @@ def ingest_text(
     if extract_claims:
         governor = MemoryWriteGovernor(database)
         contradiction = ContradictionEngine(database)
-        candidates = extract_candidates_for_evidence(database, result["evidence_id"])
+        candidates = extract_candidates_for_evidence(
+            database,
+            result["evidence_id"],
+            extractor_mode=extractor_mode,
+            extractor_provider=extractor_provider,
+        )
         writes = []
         contradictions = []
         for candidate in candidates:
@@ -619,7 +649,32 @@ def ingest_governed(
     project_id: str = typer.Option("default"),
     actor: str = typer.Option(None),
     extract_claims: bool = typer.Option(True),
+    extractor_mode: str | None = typer.Option(
+        None,
+        help="Extractor mode: heuristic, json_with_fallback, or json_strict",
+    ),
+    extractor_provider: str | None = typer.Option(
+        None,
+        help="Extractor provider label written to extraction audit",
+    ),
 ):
+    settings = get_settings()
+    if not isinstance(text, str):
+        text = None
+    if not isinstance(path, str):
+        path = None
+    if not isinstance(source_type, str):
+        source_type = "note"
+    if not isinstance(title, str):
+        title = None
+    if not isinstance(project_id, str):
+        project_id = "default"
+    if not isinstance(actor, str):
+        actor = None
+    if not isinstance(extractor_mode, str):
+        extractor_mode = settings.extractor_mode
+    if not isinstance(extractor_provider, str):
+        extractor_provider = settings.extractor_provider
     database = _db(db)
     database.init()
     if path:
@@ -636,6 +691,8 @@ def ingest_governed(
         project_id=project_id,
         actor=actor,
         extract_claims=extract_claims,
+        extractor_mode=extractor_mode,
+        extractor_provider=extractor_provider,
     )
     print(json.dumps(result, indent=2))
 

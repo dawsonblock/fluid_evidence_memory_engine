@@ -8,7 +8,7 @@ from .utils import now_iso
 
 ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "sqlite_schema.sql"
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "sqlite_schema.sql"
-SCHEMA_VERSION = "0.7.3"
+SCHEMA_VERSION = "0.7.4"
 
 
 class Database:

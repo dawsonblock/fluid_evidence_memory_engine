@@ -218,6 +218,20 @@ CREATE TABLE IF NOT EXISTS api_request_audit (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS extractor_audit (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL DEFAULT 'default',
+    evidence_id TEXT NOT NULL REFERENCES evidence_sources(id) ON DELETE CASCADE,
+    chunk_id TEXT REFERENCES text_chunks(id) ON DELETE SET NULL,
+    extractor_mode TEXT NOT NULL,
+    extractor_provider TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    candidate_count INTEGER NOT NULL DEFAULT 0,
+    detail TEXT NOT NULL DEFAULT '',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS lifecycle_events (
     id TEXT PRIMARY KEY,
     claim_id TEXT NOT NULL REFERENCES memory_claims(id) ON DELETE CASCADE,
@@ -453,3 +467,6 @@ CREATE INDEX IF NOT EXISTS idx_ledger_object ON memory_ledger(object_type, objec
 CREATE INDEX IF NOT EXISTS idx_claim_clusters_project ON claim_clusters(project_id, cluster_key);
 CREATE INDEX IF NOT EXISTS idx_eval_cases_project ON retrieval_eval_cases(project_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_api_request_audit_created ON api_request_audit(created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_created ON extractor_audit(created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_project ON extractor_audit(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_evidence ON extractor_audit(evidence_id, created_at);

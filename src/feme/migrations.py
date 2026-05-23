@@ -156,6 +156,26 @@ BEGIN
 END;
 """
 
+V13_EXTRACTOR_AUDIT_SQL = """
+CREATE TABLE IF NOT EXISTS extractor_audit (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL DEFAULT 'default',
+    evidence_id TEXT NOT NULL REFERENCES evidence_sources(id) ON DELETE CASCADE,
+    chunk_id TEXT REFERENCES text_chunks(id) ON DELETE SET NULL,
+    extractor_mode TEXT NOT NULL,
+    extractor_provider TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    candidate_count INTEGER NOT NULL DEFAULT 0,
+    detail TEXT NOT NULL DEFAULT '',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_created ON extractor_audit(created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_project ON extractor_audit(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_extractor_audit_evidence ON extractor_audit(evidence_id, created_at);
+"""
+
 
 class MigrationManager:
     def __init__(self, db: Database):
@@ -242,12 +262,23 @@ class MigrationManager:
                     applied=applied,
                 )
 
+            if self._try_executescript(con, V13_EXTRACTOR_AUDIT_SQL):
+                self._record_migration(
+                    con,
+                    migration_id="013_extractor_audit",
+                    name="v0.7.4 extractor audit persistence",
+                    checksum=hashlib.sha256(
+                        V13_EXTRACTOR_AUDIT_SQL.encode("utf-8")
+                    ).hexdigest(),
+                    applied=applied,
+                )
+
             con.execute(
                 "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
-                ("schema_version", "0.7.3", now_iso()),
+                ("schema_version", "0.7.4", now_iso()),
             )
             con.commit()
-        return {"applied": applied, "schema_version": "0.7.3"}
+        return {"applied": applied, "schema_version": "0.7.4"}
 
     @staticmethod
     def _record_migration(

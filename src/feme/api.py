@@ -35,7 +35,7 @@ from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.3")
+app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.4")
 settings = get_settings()
 database = make_database()
 database.init()
@@ -210,6 +210,8 @@ class IngestRequest(BaseModel):
     project_id: str = "default"
     extract_claims: bool = True
     extract_entities: bool = True
+    extractor_mode: str | None = None
+    extractor_provider: str | None = None
 
 
 class SearchRequest(BaseModel):
@@ -273,6 +275,8 @@ class GovernedIngestRequest(BaseModel):
     project_id: str = "default"
     actor: str | None = None
     extract_claims: bool = True
+    extractor_mode: str | None = None
+    extractor_provider: str | None = None
 
 
 class EvalCaseRequest(BaseModel):
@@ -286,7 +290,7 @@ class EvalCaseRequest(BaseModel):
 def health():
     return {
         "status": "ok",
-        "version": "0.7.3",
+        "version": "0.7.4",
         "db_backend": settings.db_backend,
         "db_path": getattr(database, "path", settings.db_path),
         "runtime": runtime_health(database),
@@ -295,6 +299,8 @@ def health():
 
 @app.post("/ingest")
 def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
+    extractor_mode = req.extractor_mode or settings.extractor_mode
+    extractor_provider = req.extractor_provider or settings.extractor_provider
     result = EvidenceIngestor(database).ingest_text(
         req.text,
         source_type=req.source_type,
@@ -307,7 +313,12 @@ def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
     if req.extract_claims:
         governor = MemoryWriteGovernor(database)
         contradiction = ContradictionEngine(database)
-        candidates = extract_candidates_for_evidence(database, result["evidence_id"])
+        candidates = extract_candidates_for_evidence(
+            database,
+            result["evidence_id"],
+            extractor_mode=extractor_mode,
+            extractor_provider=extractor_provider,
+        )
         for candidate in candidates:
             write = governor.commit_candidate(candidate, project_id=req.project_id)
             if write.matched_claim_id:
@@ -594,6 +605,8 @@ def runtime_migrate(_auth: None = Depends(require_admin_api_key)):
 def ingest_governed(
     req: GovernedIngestRequest, _auth: None = Depends(require_editor_api_key)
 ):
+    extractor_mode = req.extractor_mode or settings.extractor_mode
+    extractor_provider = req.extractor_provider or settings.extractor_provider
     return TransactionalIngestionPipeline(database).ingest_text(
         req.text,
         source_type=req.source_type,
@@ -602,6 +615,8 @@ def ingest_governed(
         project_id=req.project_id,
         actor=req.actor,
         extract_claims=req.extract_claims,
+        extractor_mode=extractor_mode,
+        extractor_provider=extractor_provider,
     )
 
 
