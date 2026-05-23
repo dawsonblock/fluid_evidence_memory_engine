@@ -1,11 +1,32 @@
-FEME v0.7.5 PostgreSQL live proof output placeholder.
+FEME v0.7.5 PostgreSQL live proof output
+Generated: 2026-05-23
 
-Run externally in an environment with psycopg installed:
+Command:
+  docker compose --profile postgres up -d postgres
+  export FEME_DB_BACKEND=postgres
+  export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+  export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+  pytest -v tests/test_v07_postgres_live_integration.py
 
-docker compose --profile postgres up -d postgres
-export FEME_DB_BACKEND=postgres
-export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
-export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
-pytest -q tests/test_v07_postgres_live_integration.py
+Output:
+============================= test session starts ==============================
+platform darwin -- Python 3.10.19, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/dawsonblock/Downloads/fluid_evidence_memory_engine_v0_6_postgres
+configfile: pyproject.toml
+plugins: anyio-4.13.0
+collecting ... collected 10 items
+
+tests/test_v07_postgres_live_integration.py::test_postgres_governed_ingest_retrieve_and_ledger_verify PASSED [ 10%]
+tests/test_v07_postgres_live_integration.py::test_postgres_init_and_migrate PASSED [ 20%]
+tests/test_v07_postgres_live_integration.py::test_postgres_export_import_redaction_and_integrity PASSED [ 30%]
+tests/test_v07_postgres_live_integration.py::test_postgres_api_smoke PASSED [ 40%]
+tests/test_v07_postgres_live_integration.py::test_postgres_ledger_append_is_serialized_under_concurrency PASSED [ 50%]
+tests/test_v07_postgres_live_integration.py::test_postgres_ledger_is_append_only PASSED [ 60%]
+tests/test_v07_postgres_live_integration.py::test_postgres_duplicate_evidence_parallel_writers PASSED [ 70%]
+tests/test_v07_postgres_live_integration.py::test_postgres_source_registry_review_required PASSED [ 80%]
+tests/test_v07_postgres_live_integration.py::test_postgres_native_fts_path PASSED [ 90%]
+tests/test_v07_postgres_live_integration.py::test_runtime_health_reports_postgres_backend PASSED [100%]
+
+============================== 10 passed in 3.02s ==============================
 
 Paste exact test output below this line when captured.
