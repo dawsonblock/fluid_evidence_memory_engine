@@ -161,6 +161,7 @@ Create a clean release ZIP (git-tracked files only):
 
 ```bash
 bash scripts/build-release-zip.sh
+bash scripts/validate-release-zip.sh "$(ls -t dist/fluid_evidence_memory_engine-v*.zip | head -n 1)"
 ```
 
 Run live PostgreSQL tests through Docker Compose:
