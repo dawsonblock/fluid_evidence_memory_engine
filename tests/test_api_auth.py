@@ -114,13 +114,11 @@ def test_api_write_endpoints_require_admin_key(tmp_path, monkeypatch):
         assert readonly_search.status_code == 200
 
         with db.connect() as con:
-            rows = con.execute(
-                """
+            rows = con.execute("""
                 SELECT path, required_role, resolved_role, decision, detail, principal_hash
                 FROM api_request_audit
                 ORDER BY created_at
-                """
-            ).fetchall()
+                """).fetchall()
         assert rows
         assert any(
             r["path"] == "/ingest/governed"
@@ -234,13 +232,11 @@ def test_api_role_scopes_viewer_reviewer_editor_admin(tmp_path, monkeypatch):
         assert admin_backup.status_code == 200
 
         with db.connect() as con:
-            rows = con.execute(
-                """
+            rows = con.execute("""
                 SELECT path, required_role, resolved_role, decision, detail
                 FROM api_request_audit
                 ORDER BY created_at
-                """
-            ).fetchall()
+                """).fetchall()
         assert any(
             r["path"] == "/search"
             and r["required_role"] == "viewer"

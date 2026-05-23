@@ -227,9 +227,7 @@ def _sentence_to_candidate(
         else None
     )
     support_token_end_abs = (
-        chunk_token_start + support_token_end
-        if support_token_end is not None
-        else None
+        chunk_token_start + support_token_end if support_token_end is not None else None
     )
 
     return ClaimCandidate(
