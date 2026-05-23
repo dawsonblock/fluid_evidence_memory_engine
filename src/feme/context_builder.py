@@ -3,7 +3,7 @@ from __future__ import annotations
 from .db import Database
 from .models import ContextPacket
 from .provenance import ProvenanceGraph
-from .retrieval import RetrievalPlanner
+from .retrieval import RetrievalPlanner, resolve_retrieval_mode
 from .utils import json_dumps, new_id, now_iso
 
 
@@ -18,13 +18,19 @@ class ContextBuilder:
         *,
         project_id: str = "default",
         token_budget: int = 12000,
+        retrieval_mode: str | None = None,
         include_pending_review: bool = True,
     ) -> ContextPacket:
+        mode, effective_include_pending = resolve_retrieval_mode(
+            retrieval_mode,
+            include_pending_review,
+        )
         results = self.retrieval.search(
             question,
             project_id=project_id,
             top_k=24,
-            include_pending_review=include_pending_review,
+            retrieval_mode=mode,
+            include_pending_review=effective_include_pending,
         )
         included: list[dict] = []
         excluded: list[dict] = []
@@ -47,7 +53,7 @@ class ContextBuilder:
             if result.kind == "claim" and result.claim_id:
                 item["supporting_evidence"] = self._supporting_evidence(
                     result.claim_id,
-                    include_pending_review=include_pending_review,
+                    include_pending_review=effective_include_pending,
                 )
                 item["contradictions"] = self._contradictions(result.claim_id)
                 status = item["metadata"].get("status")
@@ -72,9 +78,9 @@ class ContextBuilder:
             if result.kind == "chunk" and result.evidence_id:
                 item["source"] = self._evidence_source(
                     result.evidence_id,
-                    include_pending_review=include_pending_review,
+                    include_pending_review=effective_include_pending,
                 )
-                if item["source"] is None and not include_pending_review:
+                if item["source"] is None and not effective_include_pending:
                     excluded.append(
                         {
                             "id": result.id,
@@ -97,6 +103,8 @@ class ContextBuilder:
                 "used_estimated_tokens": used_tokens,
                 "project_id": project_id,
                 "builder": "context-builder-v3",
+                "retrieval_mode": mode,
+                "include_pending_review": effective_include_pending,
                 "risk_summary": risk_summary,
             },
         )

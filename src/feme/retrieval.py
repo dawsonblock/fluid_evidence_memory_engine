@@ -23,13 +23,22 @@ class RetrievalPlanner:
         project_id: str = "default",
         top_k: int = 10,
         include_statuses: tuple[str, ...] | None = None,
+        retrieval_mode: str | None = None,
         include_pending_review: bool = True,
     ) -> list[RetrievalResult]:
-        if include_statuses is None:
+        mode, effective_include_pending = resolve_retrieval_mode(
+            retrieval_mode,
+            include_pending_review,
+        )
+        if include_statuses is None or mode == "public":
             include_statuses = (
-                ("active", "pending_review", "disputed")
-                if include_pending_review
-                else ("active", "disputed")
+                ("active",)
+                if mode == "public"
+                else (
+                    ("active", "pending_review", "disputed")
+                    if effective_include_pending
+                    else ("active", "disputed")
+                )
             )
         claim_results = self._search_claims(
             query,
@@ -38,9 +47,13 @@ class RetrievalPlanner:
             include_statuses=include_statuses,
         )
         include_review_statuses = (
-            ("active", "pending_review")
-            if "pending_review" in include_statuses
-            else ("active",)
+            ("active",)
+            if mode == "public"
+            else (
+                ("active", "pending_review")
+                if "pending_review" in include_statuses
+                else ("active",)
+            )
         )
         chunk_results = self._search_chunks(
             query,
@@ -57,7 +70,8 @@ class RetrievalPlanner:
             merged,
             project_id=project_id,
             include_statuses=include_statuses,
-            include_pending_review=include_pending_review,
+            include_pending_review=effective_include_pending,
+            retrieval_mode=mode,
         )
         self._touch_claims([r.claim_id for r in merged if r.claim_id])
         return merged
@@ -415,3 +429,19 @@ def _lexical_score(query: str, text: str | None) -> float:
 
 def _is_postgres(db: Database) -> bool:
     return str(getattr(db, "backend", "sqlite")).lower() == "postgres"
+
+
+def resolve_retrieval_mode(
+    retrieval_mode: str | None,
+    include_pending_review: bool,
+) -> tuple[str, bool]:
+    mode = (retrieval_mode or "").strip().lower()
+    if mode and mode not in {"public", "internal"}:
+        raise ValueError(f"invalid retrieval mode: {retrieval_mode}")
+    if mode == "public":
+        # Public mode is strict and never allows pending-review material.
+        return "public", False
+    if mode == "internal":
+        return "internal", bool(include_pending_review)
+    inferred_mode = "internal" if include_pending_review else "public"
+    return inferred_mode, bool(include_pending_review)

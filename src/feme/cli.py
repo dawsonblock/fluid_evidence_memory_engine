@@ -166,6 +166,10 @@ def search(
     query: str = typer.Argument(...),
     project_id: str = typer.Option("default"),
     top_k: int = 10,
+    retrieval_mode: str | None = typer.Option(
+        None,
+        help="Retrieval mode: public (reviewed-only) or internal",
+    ),
     include_pending_review: bool = typer.Option(
         False,
         "--include-pending-review/--exclude-pending-review",
@@ -173,10 +177,13 @@ def search(
     ),
 ):
     database = _db(db)
+    if not isinstance(retrieval_mode, str):
+        retrieval_mode = None
     results = RetrievalPlanner(database).search(
         query,
         project_id=project_id,
         top_k=top_k,
+        retrieval_mode=retrieval_mode,
         include_pending_review=include_pending_review,
     )
     for r in results:
@@ -193,6 +200,10 @@ def context(
     question: str = typer.Argument(...),
     project_id: str = typer.Option("default"),
     budget: int = typer.Option(12000),
+    retrieval_mode: str | None = typer.Option(
+        None,
+        help="Retrieval mode: public (reviewed-only) or internal",
+    ),
     include_pending_review: bool = typer.Option(
         False,
         "--include-pending-review/--exclude-pending-review",
@@ -200,10 +211,13 @@ def context(
     ),
 ):
     database = _db(db)
+    if not isinstance(retrieval_mode, str):
+        retrieval_mode = None
     packet = ContextBuilder(database).build(
         question,
         project_id=project_id,
         token_budget=budget,
+        retrieval_mode=retrieval_mode,
         include_pending_review=include_pending_review,
     )
     print(packet.model_dump_json(indent=2))

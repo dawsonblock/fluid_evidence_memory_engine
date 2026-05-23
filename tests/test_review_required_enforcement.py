@@ -123,6 +123,32 @@ def test_search_excludes_pending_review_chunks(tmp_path: Path):
     assert any(r.kind == "chunk" and r.evidence_id == evidence_id for r in with_pending)
 
 
+def test_public_retrieval_mode_is_strict(tmp_path: Path):
+    db = _db(tmp_path)
+    claim_id = _ingest_review_required_claim(db, project_id="p-public-mode")
+    evidence_id = _ingest_review_required_evidence(db, project_id="p-public-mode")
+
+    strict_public = RetrievalPlanner(db).search(
+        "canonical database",
+        project_id="p-public-mode",
+        retrieval_mode="public",
+        include_pending_review=True,
+    )
+    assert all(r.claim_id != claim_id for r in strict_public)
+    assert all(
+        not (r.kind == "chunk" and r.evidence_id == evidence_id) for r in strict_public
+    )
+
+    internal = RetrievalPlanner(db).search(
+        "canonical database",
+        project_id="p-public-mode",
+        retrieval_mode="internal",
+        include_pending_review=True,
+    )
+    assert any(r.claim_id == claim_id for r in internal)
+    assert any(r.kind == "chunk" and r.evidence_id == evidence_id for r in internal)
+
+
 def test_answer_scaffold_warns_on_pending_review(tmp_path: Path):
     db = _db(tmp_path)
     _ingest_review_required_claim(db, project_id="p-answer")
@@ -234,6 +260,23 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
         assert search_with_pending.status_code == 200
         assert any(item["claim_id"] == claim_id for item in search_with_pending.json())
 
+        public_with_pending = client.post(
+            "/search",
+            json={
+                "query": "canonical database",
+                "project_id": "p-filter",
+                "retrieval_mode": "public",
+                "include_pending_review": True,
+            },
+        )
+        assert public_with_pending.status_code == 200
+        public_payload = public_with_pending.json()
+        assert all(item["claim_id"] != claim_id for item in public_payload)
+        assert all(
+            not (item.get("kind") == "chunk" and item.get("evidence_id") == evidence_id)
+            for item in public_payload
+        )
+
         context = client.post(
             "/context",
             json={
@@ -279,6 +322,16 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
     )
     captured = capsys.readouterr().out
     assert claim_id in captured
+
+    cli.search(
+        db=str(db.path),
+        query="canonical database",
+        project_id="p-filter",
+        retrieval_mode="public",
+        include_pending_review=True,
+    )
+    captured = capsys.readouterr().out
+    assert claim_id not in captured
 
     cli.context(
         db=str(db.path),

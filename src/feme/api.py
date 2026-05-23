@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
@@ -215,6 +216,7 @@ class SearchRequest(BaseModel):
     query: str
     project_id: str = "default"
     top_k: int = 10
+    retrieval_mode: Literal["public", "internal"] | None = None
     include_pending_review: bool = False
 
 
@@ -222,6 +224,7 @@ class ContextRequest(BaseModel):
     question: str
     project_id: str = "default"
     token_budget: int = 12000
+    retrieval_mode: Literal["public", "internal"] | None = None
     include_pending_review: bool = False
 
 
@@ -325,6 +328,7 @@ def search(req: SearchRequest, _auth: None = Depends(require_viewer_api_key)):
             req.query,
             project_id=req.project_id,
             top_k=req.top_k,
+            retrieval_mode=req.retrieval_mode,
             include_pending_review=req.include_pending_review,
         )
     ]
@@ -338,6 +342,7 @@ def context(req: ContextRequest, _auth: None = Depends(require_viewer_api_key)):
             req.question,
             project_id=req.project_id,
             token_budget=req.token_budget,
+            retrieval_mode=req.retrieval_mode,
             include_pending_review=req.include_pending_review,
         )
         .model_dump()

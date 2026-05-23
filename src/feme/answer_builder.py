@@ -23,12 +23,14 @@ class GroundedAnswerBuilder:
         *,
         project_id: str = "default",
         token_budget: int = 12000,
+        retrieval_mode: str | None = None,
         include_pending_review: bool = True,
     ) -> dict:
         packet = ContextBuilder(self.db).build(
             question,
             project_id=project_id,
             token_budget=token_budget,
+            retrieval_mode=retrieval_mode,
             include_pending_review=include_pending_review,
         )
         citations = CitationManager(self.db).citations_for_context(packet, persist=True)
