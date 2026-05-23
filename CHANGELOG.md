@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.7.1 - Auth Scope Hardening
+
+- Added role-based API key scopes: viewer, reviewer, editor, admin.
+- Added environment keys: `FEME_API_KEY_VIEWER`, `FEME_API_KEY_REVIEWER`, `FEME_API_KEY_EDITOR`, `FEME_API_KEY_ADMIN`.
+- Preserved legacy compatibility for `FEME_API_KEY_READONLY` and `FEME_API_KEY` fallback behavior.
+- Mapped endpoint protections by operation type:
+	- viewer: read/query endpoints
+	- reviewer: review queue endpoints
+	- editor: ingest/governed mutations and evaluation writes
+	- admin: backup, migrations, maintenance, retention redaction, source policy updates
+- Expanded API auth tests to validate scope enforcement and no-auth legacy mode.
+
 ## v0.7.0 - PostgreSQL Proof + Runtime Hygiene
 
 - Fixed PostgreSQL dollar-quoted migration execution with robust SQL script splitting.

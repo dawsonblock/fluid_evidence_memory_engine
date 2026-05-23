@@ -13,14 +13,53 @@ def _db(tmp_path) -> Database:
     return db
 
 
-def _load_api(monkeypatch, tmp_path, *, readonly_key: str = "", admin_key: str = ""):
+def _load_api(
+    monkeypatch, tmp_path, *, readonly_key: str = "", admin_key: str = ""
+):
     monkeypatch.setenv("FEME_DB_BACKEND", "sqlite")
     monkeypatch.setenv("FEME_DB_PATH", str(tmp_path / "api.sqlite"))
     monkeypatch.delenv("FEME_POSTGRES_DSN", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("FEME_API_KEY_READONLY", readonly_key)
     monkeypatch.setenv("FEME_API_KEY_ADMIN", admin_key)
-    monkeypatch.setenv("FEME_API_AUTH_REQUIRED", "true" if (readonly_key or admin_key) else "false")
+    monkeypatch.setenv("FEME_API_KEY_VIEWER", "")
+    monkeypatch.setenv("FEME_API_KEY_REVIEWER", "")
+    monkeypatch.setenv("FEME_API_KEY_EDITOR", "")
+    monkeypatch.setenv(
+        "FEME_API_AUTH_REQUIRED",
+        "true" if (readonly_key or admin_key) else "false",
+    )
+
+    config = importlib.import_module("feme.config")
+    importlib.reload(config)
+    api = importlib.import_module("feme.api")
+    return importlib.reload(api)
+
+
+def _load_api_with_roles(
+    monkeypatch,
+    tmp_path,
+    *,
+    viewer_key: str = "",
+    reviewer_key: str = "",
+    editor_key: str = "",
+    admin_key: str = "",
+):
+    monkeypatch.setenv("FEME_DB_BACKEND", "sqlite")
+    monkeypatch.setenv("FEME_DB_PATH", str(tmp_path / "api.sqlite"))
+    monkeypatch.delenv("FEME_POSTGRES_DSN", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("FEME_API_KEY_READONLY", "")
+    monkeypatch.setenv("FEME_API_KEY_VIEWER", viewer_key)
+    monkeypatch.setenv("FEME_API_KEY_REVIEWER", reviewer_key)
+    monkeypatch.setenv("FEME_API_KEY_EDITOR", editor_key)
+    monkeypatch.setenv("FEME_API_KEY_ADMIN", admin_key)
+    monkeypatch.setenv(
+        "FEME_API_AUTH_REQUIRED",
+        "true"
+        if (viewer_key or reviewer_key or editor_key or admin_key)
+        else "false",
+    )
 
     config = importlib.import_module("feme.config")
     importlib.reload(config)
@@ -69,11 +108,20 @@ def test_api_write_endpoints_require_admin_key(tmp_path, monkeypatch):
         )
         assert admin.status_code == 200
         assert "evidence_id" in admin.json()
+
+        readonly_search = client.post(
+            "/search",
+            headers={"X-FEME-API-Key": "read-only-key"},
+            json={"query": "auth", "project_id": "auth", "top_k": 5},
+        )
+        assert readonly_search.status_code == 200
     finally:
         api.database = original_db
 
 
-def test_api_write_endpoints_allow_legacy_mode_without_keys(tmp_path, monkeypatch):
+def test_api_write_endpoints_allow_legacy_mode_without_keys(
+    tmp_path, monkeypatch
+):
     fastapi_testclient = pytest.importorskip("fastapi.testclient")
 
     api = _load_api(monkeypatch, tmp_path)
@@ -89,5 +137,77 @@ def test_api_write_endpoints_allow_legacy_mode_without_keys(tmp_path, monkeypatc
         )
         assert response.status_code == 200
         assert "evidence_id" in response.json()
+    finally:
+        api.database = original_db
+
+
+def test_api_role_scopes_viewer_reviewer_editor_admin(tmp_path, monkeypatch):
+    fastapi_testclient = pytest.importorskip("fastapi.testclient")
+
+    api = _load_api_with_roles(
+        monkeypatch,
+        tmp_path,
+        viewer_key="viewer-key",
+        reviewer_key="reviewer-key",
+        editor_key="editor-key",
+        admin_key="admin-key",
+    )
+
+    db = _db(tmp_path)
+    original_db = api.database
+    api.database = db
+    try:
+        client = fastapi_testclient.TestClient(api.app)
+
+        viewer_search = client.post(
+            "/search",
+            headers={"X-FEME-API-Key": "viewer-key"},
+            json={"query": "auth", "project_id": "auth", "top_k": 5},
+        )
+        assert viewer_search.status_code == 200
+
+        viewer_review_pending = client.get(
+            "/review/pending",
+            headers={"X-FEME-API-Key": "viewer-key"},
+        )
+        assert viewer_review_pending.status_code == 403
+        assert (
+            viewer_review_pending.json()["detail"]
+            == "insufficient_api_scope"
+        )
+
+        reviewer_pending = client.get(
+            "/review/pending",
+            headers={"X-FEME-API-Key": "reviewer-key"},
+        )
+        assert reviewer_pending.status_code == 200
+
+        reviewer_ingest = client.post(
+            "/ingest/governed",
+            headers={"X-FEME-API-Key": "reviewer-key"},
+            json={"text": "scope check", "project_id": "auth"},
+        )
+        assert reviewer_ingest.status_code == 403
+        assert reviewer_ingest.json()["detail"] == "insufficient_api_scope"
+
+        editor_ingest = client.post(
+            "/ingest/governed",
+            headers={"X-FEME-API-Key": "editor-key"},
+            json={"text": "scope check", "project_id": "auth"},
+        )
+        assert editor_ingest.status_code == 200
+
+        editor_backup = client.post(
+            "/backup",
+            headers={"X-FEME-API-Key": "editor-key"},
+        )
+        assert editor_backup.status_code == 403
+        assert editor_backup.json()["detail"] == "insufficient_api_scope"
+
+        admin_backup = client.post(
+            "/backup",
+            headers={"X-FEME-API-Key": "admin-key"},
+        )
+        assert admin_backup.status_code == 200
     finally:
         api.database = original_db
