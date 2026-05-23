@@ -4,11 +4,20 @@
 ![Backend](https://img.shields.io/badge/backends-SQLite%20%7C%20PostgreSQL-0A7EA4)
 ![Interface](https://img.shields.io/badge/interface-CLI%20%7C%20API-2F855A)
 ![Tests](https://img.shields.io/badge/tests-pytest-6E44FF?logo=pytest&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Token-anchored, claim-based long-context memory with strict evidence provenance, review governance, and dual runtime support (SQLite + PostgreSQL).
 
 > Raw sources are authoritative. Claims are structured interpretations. Summaries are disposable. Embeddings are retrieval helpers only.
+
+## Jump To
+
+- [Why FEME](#why-feme)
+- [Quick Start](#quick-start)
+- [Testing](#testing)
+- [Practical Examples](#practical-examples)
+- [API Example](#api-example)
+- [Current Status](#current-status)
+- [Documentation](#documentation)
 
 ---
 
@@ -181,6 +190,34 @@ feme citations "Why did latency increase?" --db ./memory.db --persist
 feme runtime-health --db ./memory.db
 feme integrity-check --db ./memory.db --project-id default
 feme ledger-verify --db ./memory.db
+```
+
+---
+
+## API Example
+
+Run the API:
+
+```bash
+uvicorn feme.api:app --host 0.0.0.0 --port 8000
+```
+
+Ingest evidence via HTTP:
+
+```bash
+curl -X POST http://localhost:8000/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "The operations report confirms configuration drift before latency spike.",
+    "source_type": "official_record",
+    "project_id": "default"
+  }'
+```
+
+Search via HTTP:
+
+```bash
+curl "http://localhost:8000/search?q=configuration%20drift&project_id=default"
 ```
 
 ---
