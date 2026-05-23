@@ -14,11 +14,15 @@ class RetrievalEvaluator:
         self.retrieval = RetrievalPlanner(db)
 
     def run_case(self, case: EvaluationCase, *, top_k: int = 10) -> dict:
-        results = self.retrieval.search(case.query, project_id=case.project_id, top_k=top_k)
+        results = self.retrieval.search(
+            case.query, project_id=case.project_id, top_k=top_k
+        )
         result_claim_ids = [r.claim_id for r in results if r.claim_id]
         hit_claims = [cid for cid in case.expected_claim_ids if cid in result_claim_ids]
         result_text = "\n".join(r.text.lower() for r in results)
-        hit_terms = [term for term in case.expected_terms if term.lower() in result_text]
+        hit_terms = [
+            term for term in case.expected_terms if term.lower() in result_text
+        ]
         score_parts = []
         if case.expected_claim_ids:
             score_parts.append(len(hit_claims) / len(case.expected_claim_ids))
@@ -37,7 +41,13 @@ class RetrievalEvaluator:
         with self.db.connect() as con:
             con.execute(
                 "INSERT INTO evaluation_runs (id, project_id, case_json, result_json, created_at) VALUES (?, ?, ?, ?, ?)",
-                (new_id("eval"), case.project_id, case.model_dump_json(), json_dumps(result), now_iso()),
+                (
+                    new_id("eval"),
+                    case.project_id,
+                    case.model_dump_json(),
+                    json_dumps(result),
+                    now_iso(),
+                ),
             )
             con.commit()
         return result
@@ -120,8 +130,12 @@ class RetrievalEvaluator:
 
 
 def _valid_char_bounds(start, end) -> bool:
-    return isinstance(start, int) and isinstance(end, int) and start >= 0 and end > start
+    return (
+        isinstance(start, int) and isinstance(end, int) and start >= 0 and end > start
+    )
 
 
 def _valid_token_bounds(start, end) -> bool:
-    return isinstance(start, int) and isinstance(end, int) and start >= 0 and end >= start
+    return (
+        isinstance(start, int) and isinstance(end, int) and start >= 0 and end >= start
+    )

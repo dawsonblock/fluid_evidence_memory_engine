@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from typing import Any, Union
 
 from .db import Database
 from .models import ClaimCandidate, MemoryLevel, MemoryType
@@ -55,14 +57,33 @@ CORRECTION_MARKERS = [
     "not anymore",
 ]
 
+JsonClaimExtractor = Callable[
+    [str, dict[str, Any]],
+    Union[dict[str, Any], list[dict[str, Any]]],
+]
+
 
 def extract_candidates_from_chunk(
-    chunk: dict, policy: MemoryPolicy | None = None
+    chunk: dict,
+    policy: MemoryPolicy | None = None,
+    *,
+    json_claim_extractor: JsonClaimExtractor | None = None,
 ) -> list[ClaimCandidate]:
     policy = policy or MemoryPolicy.default()
     text = str(chunk.get("text") or "")
     if not text:
         return []
+
+    if json_claim_extractor is not None:
+        try:
+            payload = json_claim_extractor(text, dict(chunk))
+            structured = _structured_candidates_from_json(payload, dict(chunk), policy)
+            if structured:
+                return structured
+        except Exception:
+            # Structured extraction is optional; fall back to deterministic heuristics.
+            pass
+
     sentences = _sentence_spans(text)
     tokenized = Tokenizer().tokenize(text)
     out: list[ClaimCandidate] = []
@@ -90,6 +111,7 @@ def extract_candidates_for_evidence(
     db: Database,
     evidence_id: str,
     policy: MemoryPolicy | None = None,
+    json_claim_extractor: JsonClaimExtractor | None = None,
     *,
     con=None,
 ) -> list[ClaimCandidate]:
@@ -124,8 +146,189 @@ def extract_candidates_for_evidence(
         ).fetchall()
     candidates: list[ClaimCandidate] = []
     for row in rows:
-        candidates.extend(extract_candidates_from_chunk(dict(row), policy=policy))
+        candidates.extend(
+            extract_candidates_from_chunk(
+                dict(row),
+                policy=policy,
+                json_claim_extractor=json_claim_extractor,
+            )
+        )
     return candidates
+
+
+def _structured_candidates_from_json(
+    payload: dict[str, Any] | list[dict[str, Any]],
+    chunk: dict[str, Any],
+    policy: MemoryPolicy,
+) -> list[ClaimCandidate]:
+    entries = _normalize_json_candidates_payload(payload)
+    if not entries:
+        return []
+
+    out: list[ClaimCandidate] = []
+    chunk_text = str(chunk.get("text") or "")
+    tokenized = Tokenizer().tokenize(chunk_text)
+
+    for entry in entries:
+        candidate = _candidate_from_structured_json(
+            entry,
+            chunk,
+            chunk_text=chunk_text,
+            tokenized=tokenized,
+            policy=policy,
+        )
+        if candidate is not None:
+            out.append(candidate)
+    return out
+
+
+def _normalize_json_candidates_payload(
+    payload: dict[str, Any] | list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        candidates = payload.get("candidates")
+        if isinstance(candidates, list):
+            return [item for item in candidates if isinstance(item, dict)]
+    return []
+
+
+def _candidate_from_structured_json(
+    entry: dict[str, Any],
+    chunk: dict[str, Any],
+    *,
+    chunk_text: str,
+    tokenized,
+    policy: MemoryPolicy,
+) -> ClaimCandidate | None:
+    subject = _required_str(entry, "subject")
+    predicate = _required_str(entry, "predicate")
+    obj = _required_str(entry, "object")
+    claim_text = _required_str(entry, "claim_text")
+    if not (subject and predicate and obj and claim_text):
+        return None
+
+    char_start, char_end = _read_char_span(entry, chunk_text)
+    if char_start is None or char_end is None:
+        return None
+
+    token_start, token_end = _read_token_span(entry)
+    if token_start is None or token_end is None:
+        token_start, token_end = _token_range_for_char_span(
+            tokenized,
+            char_start,
+            char_end,
+        )
+
+    chunk_char_start = int(chunk.get("char_start") or 0)
+    support_char_start_abs = chunk_char_start + char_start
+    support_char_end_abs = chunk_char_start + char_end
+    chunk_token_start = int(chunk.get("token_start") or 0)
+    support_token_start_abs = (
+        chunk_token_start + token_start if token_start is not None else None
+    )
+    support_token_end_abs = (
+        chunk_token_start + token_end if token_end is not None else None
+    )
+
+    source_quality = float(chunk.get("source_quality", 0.5))
+    quote_text = str(entry.get("support_quote_text") or chunk_text[char_start:char_end])
+    memory_type = _parse_memory_type(entry.get("memory_type"))
+    metadata = dict(entry.get("metadata") or {})
+    metadata.update(
+        {
+            "extractor": "json-adapter-v1",
+            "structured_json": True,
+            "chunk_index": chunk.get("chunk_index"),
+            "source_type": chunk.get("source_type"),
+            "source_review_required": bool(chunk.get("review_required", 0)),
+            "support_char_start": support_char_start_abs,
+            "support_char_end": support_char_end_abs,
+            "support_token_start": support_token_start_abs,
+            "support_token_end": support_token_end_abs,
+            "support_quote_text": quote_text,
+        }
+    )
+
+    return ClaimCandidate(
+        subject=subject[:240],
+        predicate=predicate[:120],
+        object=obj[:500],
+        claim_text=claim_text,
+        memory_type=memory_type,
+        memory_level=MemoryLevel.project_memory,
+        confidence=_float_or_default(entry.get("confidence"), 0.64),
+        salience=_float_or_default(entry.get("salience"), 0.68),
+        source_quality=source_quality,
+        user_explicitness=_float_or_default(entry.get("user_explicitness"), 0.9),
+        long_term_usefulness=_float_or_default(
+            entry.get("long_term_usefulness"), 0.78
+        ),
+        project_relevance=_float_or_default(entry.get("project_relevance"), 0.9),
+        actionability=_float_or_default(entry.get("actionability"), 0.72),
+        contradiction_value=_float_or_default(entry.get("contradiction_value"), 0.0),
+        privacy_sensitivity=policy.privacy_sensitivity_for_text(claim_text),
+        uncertainty=_float_or_default(entry.get("uncertainty"), 0.18),
+        triviality=_float_or_default(entry.get("triviality"), 0.05),
+        short_livedness=_float_or_default(entry.get("short_livedness"), 0.05),
+        evidence_id=chunk.get("evidence_id"),
+        chunk_id=chunk.get("id"),
+        span_id=chunk.get("span_id"),
+        support_char_start=support_char_start_abs,
+        support_char_end=support_char_end_abs,
+        support_token_start=support_token_start_abs,
+        support_token_end=support_token_end_abs,
+        support_quote_text=quote_text,
+        metadata=metadata,
+    )
+
+
+def _required_str(entry: dict[str, Any], key: str) -> str | None:
+    value = entry.get(key)
+    if not isinstance(value, str):
+        return None
+    clean = value.strip()
+    return clean or None
+
+
+def _read_char_span(
+    entry: dict[str, Any],
+    chunk_text: str,
+) -> tuple[int | None, int | None]:
+    start_raw = entry.get("support_char_start")
+    end_raw = entry.get("support_char_end")
+    if not isinstance(start_raw, int) or not isinstance(end_raw, int):
+        return None, None
+    if start_raw < 0 or end_raw <= start_raw or end_raw > len(chunk_text):
+        return None, None
+    return start_raw, end_raw
+
+
+def _read_token_span(entry: dict[str, Any]) -> tuple[int | None, int | None]:
+    start_raw = entry.get("support_token_start")
+    end_raw = entry.get("support_token_end")
+    if not isinstance(start_raw, int) or not isinstance(end_raw, int):
+        return None, None
+    if start_raw < 0 or end_raw < start_raw:
+        return None, None
+    return start_raw, end_raw
+
+
+def _parse_memory_type(value: Any) -> MemoryType:
+    if isinstance(value, str):
+        try:
+            return MemoryType(value)
+        except ValueError:
+            return MemoryType.unknown
+    return MemoryType.project_decision
+
+
+def _float_or_default(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _sentence_spans(text: str) -> list[tuple[str, int, int]]:
