@@ -385,8 +385,7 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
     verify_default = json.loads(capsys.readouterr().out)
     assert verify_default["publication_blocked"] is False
     assert not any(
-        issue["type"].startswith("pending_review")
-        for issue in verify_default["issues"]
+        issue["type"].startswith("pending_review") for issue in verify_default["issues"]
     )
 
     cli.verify(
