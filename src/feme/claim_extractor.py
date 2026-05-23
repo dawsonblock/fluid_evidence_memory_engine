@@ -262,9 +262,7 @@ def _candidate_from_structured_json(
         salience=_float_or_default(entry.get("salience"), 0.68),
         source_quality=source_quality,
         user_explicitness=_float_or_default(entry.get("user_explicitness"), 0.9),
-        long_term_usefulness=_float_or_default(
-            entry.get("long_term_usefulness"), 0.78
-        ),
+        long_term_usefulness=_float_or_default(entry.get("long_term_usefulness"), 0.78),
         project_relevance=_float_or_default(entry.get("project_relevance"), 0.9),
         actionability=_float_or_default(entry.get("actionability"), 0.72),
         contradiction_value=_float_or_default(entry.get("contradiction_value"), 0.0),

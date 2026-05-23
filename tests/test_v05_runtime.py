@@ -24,6 +24,9 @@ def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
     assert db.schema_version() in {"0.5.0", "0.6.0", "0.7.0", "0.7.1", "0.7.2"}
     health = runtime_health(db)
     assert health["health"]["ok"] is True
+    assert health["embeddings"]["provider"] == "hashing-embedding-v1"
+    assert health["embeddings"]["mode"] in {"hashing", "pgvector"}
+    assert health["embeddings"]["pgvector_database_enabled"] is False
     store = SQLiteStore(db)
     assert store.capabilities().transactions is True
     with store.transaction() as con:

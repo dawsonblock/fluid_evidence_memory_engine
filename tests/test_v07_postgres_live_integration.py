@@ -309,3 +309,5 @@ def test_runtime_health_reports_postgres_backend(postgres_db):
     health = runtime_health(postgres_db)
     assert health["health"]["backend"] == "postgres"
     assert health["health"]["ok"] is True
+    assert health["embeddings"]["provider"] == "hashing-embedding-v1"
+    assert health["embeddings"]["mode"] in {"hashing", "pgvector"}
