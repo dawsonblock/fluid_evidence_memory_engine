@@ -5,6 +5,7 @@ import re
 from .db import Database
 from .models import ClaimCandidate, MemoryLevel, MemoryType
 from .policy import MemoryPolicy
+from .token_trace import Tokenizer
 
 EXPLICIT_MARKERS = [
     "remember",
@@ -63,14 +64,22 @@ def extract_candidates_from_chunk(
     if not text:
         return []
     sentences = _sentence_spans(text)
+    tokenized = Tokenizer().tokenize(text)
     out: list[ClaimCandidate] = []
     for sentence, char_start, char_end in sentences:
+        token_start, token_end = _token_range_for_char_span(
+            tokenized,
+            char_start,
+            char_end,
+        )
         candidate = _sentence_to_candidate(
             sentence,
             chunk,
             policy,
             support_char_start=char_start,
             support_char_end=char_end,
+            support_token_start=token_start,
+            support_token_end=token_end,
         )
         if candidate:
             out.append(candidate)
@@ -150,6 +159,8 @@ def _sentence_to_candidate(
     *,
     support_char_start: int | None = None,
     support_char_end: int | None = None,
+    support_token_start: int | None = None,
+    support_token_end: int | None = None,
 ) -> ClaimCandidate | None:
     lowered = sentence.lower()
     explicitness = 1.0 if any(m in lowered for m in EXPLICIT_MARKERS) else 0.2
@@ -209,6 +220,17 @@ def _sentence_to_candidate(
     support_char_end_abs = (
         chunk_char_start + support_char_end if support_char_end is not None else None
     )
+    chunk_token_start = int(chunk.get("token_start") or 0)
+    support_token_start_abs = (
+        chunk_token_start + support_token_start
+        if support_token_start is not None
+        else None
+    )
+    support_token_end_abs = (
+        chunk_token_start + support_token_end
+        if support_token_end is not None
+        else None
+    )
 
     return ClaimCandidate(
         subject=subject[:240],
@@ -245,6 +267,8 @@ def _sentence_to_candidate(
         span_id=chunk.get("span_id"),
         support_char_start=support_char_start_abs,
         support_char_end=support_char_end_abs,
+        support_token_start=support_token_start_abs,
+        support_token_end=support_token_end_abs,
         support_quote_text=sentence,
         metadata={
             "extractor": "heuristic-v2",
@@ -253,6 +277,8 @@ def _sentence_to_candidate(
             "source_review_required": bool(chunk.get("review_required", 0)),
             "support_char_start": support_char_start_abs,
             "support_char_end": support_char_end_abs,
+            "support_token_start": support_token_start_abs,
+            "support_token_end": support_token_end_abs,
             "support_quote_text": sentence,
         },
     )
@@ -261,3 +287,18 @@ def _sentence_to_candidate(
 def _guess_subject(sentence: str) -> str:
     words = sentence.split()
     return " ".join(words[: min(6, len(words))])
+
+
+def _token_range_for_char_span(
+    tokens,
+    char_start: int,
+    char_end: int,
+) -> tuple[int | None, int | None]:
+    token_indexes = [
+        token.token_index
+        for token in tokens
+        if token.char_end > char_start and token.char_start < char_end
+    ]
+    if not token_indexes:
+        return None, None
+    return min(token_indexes), max(token_indexes) + 1

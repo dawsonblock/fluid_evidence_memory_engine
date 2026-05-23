@@ -11,6 +11,8 @@
 	- editor: ingest/governed mutations and evaluation writes
 	- admin: backup, migrations, maintenance, retention redaction, source policy updates
 - Expanded API auth tests to validate scope enforcement and no-auth legacy mode.
+- Added token-level support offsets for exact claim support spans (`support_token_start`, `support_token_end`) during extraction and persistence.
+- Expanded exact-span regression tests to verify token offsets are persisted and exposed in citations.
 
 ## v0.7.0 - PostgreSQL Proof + Runtime Hygiene
 

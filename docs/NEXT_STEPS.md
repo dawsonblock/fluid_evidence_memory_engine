@@ -72,7 +72,7 @@ The hashing embedder is deterministic and offline, but weak. Replace with a loca
 ## Next hardening sequence
 
 1. Port EvidenceIngestor, RetrievalPlanner, ReviewQueue, and RetentionManager onto the `MemoryStore` contract.
-2. Add real PostgreSQL integration tests using docker-compose and the postgres optional dependency.
+2. Expand PostgreSQL parity/load testing and preserve live proof artifacts in release evidence.
 3. Add queue-backed ingestion workers for PDFs/HTML/legal XML/source snapshots.
-4. Add authenticated API roles for viewer/reviewer/editor/admin.
+4. Add per-request auth principal/role audit tracing for protected API operations.
 5. Add per-answer sentence-to-citation verification before any public output layer.

@@ -56,20 +56,28 @@ def test_support_spans_are_exposed_with_exact_offsets(tmp_path):
     assert claim_items
     evidence = claim_items[0]["supporting_evidence"][0]
     assert evidence["char_start"] < evidence["char_end"]
+    assert evidence["token_start"] is not None
+    assert evidence["token_end"] is not None
+    assert evidence["token_start"] < evidence["token_end"]
     assert evidence["quote_text"] == expected_sentence
     assert evidence["quote_text"] == text[evidence["char_start"] : evidence["char_end"]]
 
     with db.connect() as con:
         support_row = con.execute(
-            "SELECT quote_text FROM claim_support_spans WHERE claim_id = ?",
+            "SELECT quote_text, token_start, token_end FROM claim_support_spans WHERE claim_id = ?",
             (write.matched_claim_id,),
         ).fetchone()
     assert support_row
     assert support_row["quote_text"] == expected_sentence
+    assert support_row["token_start"] is not None
+    assert support_row["token_end"] is not None
+    assert support_row["token_start"] < support_row["token_end"]
 
     citations = CitationManager(db).citations_for_context(packet)
     assert citations
     assert citations[0]["quote_text"] == evidence["quote_text"]
+    assert citations[0]["token_start"] is not None
+    assert citations[0]["token_end"] is not None
 
 
 def test_chunk_retrieval_is_project_scoped(tmp_path):
