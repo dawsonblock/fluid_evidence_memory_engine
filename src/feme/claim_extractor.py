@@ -115,7 +115,11 @@ def _extract_candidates_with_status(
                 return [], "strict_rejected", "structured_empty"
         except Exception as exc:
             if extractor_mode == "json_strict":
-                return [], "strict_rejected", f"structured_error:{exc.__class__.__name__}"
+                return (
+                    [],
+                    "strict_rejected",
+                    f"structured_error:{exc.__class__.__name__}",
+                )
             # Structured extraction is optional; fall back to deterministic heuristics.
             heuristic = _heuristic_candidates(
                 text,

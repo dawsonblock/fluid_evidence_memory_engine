@@ -405,9 +405,7 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
     )
 
 
-def test_api_and_cli_ingest_wire_extractor_mode_provider(
-    tmp_path: Path, monkeypatch
-):
+def test_api_and_cli_ingest_wire_extractor_mode_provider(tmp_path: Path, monkeypatch):
     db = _db(tmp_path)
 
     fastapi_testclient = pytest.importorskip("fastapi.testclient")
