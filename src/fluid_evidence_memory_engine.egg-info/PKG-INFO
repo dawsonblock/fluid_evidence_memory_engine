@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fluid-evidence-memory-engine
-Version: 0.7.0
+Version: 0.7.5
 Summary: Token-anchored claim memory with evidence links, lifecycle control, verification, review workflow, source governance, citation packets, retention, auditable retrieval, runtime storage adapters, migrations, ledger governance, and a runnable PostgreSQL backend.
 Author: Dawson Block
 Requires-Python: >=3.10
@@ -19,6 +19,8 @@ Requires-Dist: ruff>=0.4; extra == "dev"
 Requires-Dist: psycopg[binary]>=3.1; extra == "dev"
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary]>=3.1; extra == "postgres"
+Provides-Extra: vector
+Requires-Dist: pgvector>=0.2; extra == "vector"
 Provides-Extra: tokenizers
 Requires-Dist: tiktoken>=0.7; extra == "tokenizers"
 
@@ -54,7 +56,7 @@ FEME is a practical memory runtime for systems that need grounded answers and au
 ### Core capabilities
 
 | Area | What you get |
-|---|---|
+| --- | --- |
 | Evidence integrity | Immutable source records, snapshots, and token spans |
 | Claim quality | Canonicalization, contradiction tracking, and write governance |
 | Retrieval | Hybrid retrieval with lexical + embedding-assisted ranking |
@@ -168,6 +170,23 @@ Run the full test suite:
 pytest -q
 ```
 
+Strict extractor smoke (fail-closed behavior):
+
+```bash
+feme ingest-governed \
+  --project-id p1 \
+  --source-type official_record \
+  --extractor-mode json_strict \
+  --extractor-provider missing-provider \
+  --text "FEME must use PostgreSQL as canonical memory."
+```
+
+Extraction fixture evaluation baseline:
+
+```bash
+feme eval-extraction --fixture tests/fixtures/extraction/project_decisions.jsonl
+```
+
 Run live PostgreSQL integration tests (skips when DSN is unset):
 
 ```bash
@@ -179,6 +198,13 @@ One-command Docker + live-proof run:
 
 ```bash
 bash scripts/postgres-proof.sh
+```
+
+Create a clean release ZIP (git-tracked files only):
+
+```bash
+bash scripts/build-release-zip.sh
+bash scripts/validate-release-zip.sh "$(ls -t dist/fluid_evidence_memory_engine-v*.zip | head -n 1)"
 ```
 
 Run live PostgreSQL tests through Docker Compose:
@@ -194,6 +220,7 @@ docker compose --profile test-postgres up --build --abort-on-container-exit feme
 ```bash
 feme runtime-health
 feme postgres-sql-smoke
+feme eval-extraction --fixture tests/fixtures/extraction/project_decisions.jsonl
 feme source-list --project-id default
 feme answer-scaffold "What database should the memory engine use?"
 feme citations "What database should the memory engine use?" --persist
@@ -231,6 +258,7 @@ feme citations "Why did latency increase?" --db ./memory.db --persist
 feme runtime-health --db ./memory.db
 feme integrity-check --db ./memory.db --project-id default
 feme ledger-verify --db ./memory.db
+feme ledger-verify --db ./memory.db --all-projects
 ```
 
 ---
@@ -344,13 +372,18 @@ Implemented:
 - Ledger append serialization and append-only protections
 - Duplicate evidence collision hardening with concurrency test coverage
 - Live PostgreSQL integration test suite and CI wiring (dual-backend alpha proof)
+- Strict extractor semantics: `json_strict` fails closed, pluggable provider registry with `json_static` and `llm_stub` built-ins
+- Enriched extraction audit metadata (provider version, schema version, strict/fallback flags, config hash)
+- `FEME_REQUIRE_EXTRACTOR_AUDIT` policy for fail-closed audit enforcement
+- Embedding provider interface and registry (`HashingEmbeddingProvider` default, pgvector probe)
+- Extraction quality evaluation harness (`feme eval-extraction`, fixture seeds)
 
 Still evolving:
 
 - Broader adapter abstraction adoption across remaining modules
 - Deeper authz and multi-tenant isolation controls
 - Stronger production backup/restore automation (v0.7 documents explicit pg_dump/export workflow)
-- Higher-fidelity extraction and embedding backends
+- Higher-fidelity extraction and embedding backends (plug in a production LLM provider behind the registry)
 
 ---
 
@@ -370,4 +403,6 @@ Still evolving:
 - docs/NEXT_STEPS.md
 - docs/POSTGRES_PROOF.md
 - docs/UPGRADE_V0_6_POSTGRES.md
+- docs/UPGRADE_V0_7_5.md
+- docs/MEMORYSTORE_TARGET.md
 - CHANGELOG.md

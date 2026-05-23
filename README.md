@@ -346,13 +346,18 @@ Implemented:
 - Ledger append serialization and append-only protections
 - Duplicate evidence collision hardening with concurrency test coverage
 - Live PostgreSQL integration test suite and CI wiring (dual-backend alpha proof)
+- Strict extractor semantics: `json_strict` fails closed, pluggable provider registry with `json_static` and `llm_stub` built-ins
+- Enriched extraction audit metadata (provider version, schema version, strict/fallback flags, config hash)
+- `FEME_REQUIRE_EXTRACTOR_AUDIT` policy for fail-closed audit enforcement
+- Embedding provider interface and registry (`HashingEmbeddingProvider` default, pgvector probe)
+- Extraction quality evaluation harness (`feme eval-extraction`, fixture seeds)
 
 Still evolving:
 
 - Broader adapter abstraction adoption across remaining modules
 - Deeper authz and multi-tenant isolation controls
 - Stronger production backup/restore automation (v0.7 documents explicit pg_dump/export workflow)
-- Higher-fidelity extraction and embedding backends
+- Higher-fidelity extraction and embedding backends (plug in a production LLM provider behind the registry)
 
 ---
 
@@ -372,4 +377,6 @@ Still evolving:
 - docs/NEXT_STEPS.md
 - docs/POSTGRES_PROOF.md
 - docs/UPGRADE_V0_6_POSTGRES.md
+- docs/UPGRADE_V0_7_5.md
+- docs/MEMORYSTORE_TARGET.md
 - CHANGELOG.md
