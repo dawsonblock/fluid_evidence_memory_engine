@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+import hashlib
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from .claim_extractor import extract_candidates_for_evidence
@@ -45,6 +47,50 @@ ROLE_LEVELS = {
 }
 
 
+def _principal_hash(api_key: str | None) -> str:
+    if not api_key:
+        return ""
+    digest = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    return digest[:16]
+
+
+def _audit_api_auth_decision(
+    *,
+    request: Request,
+    required_role: str,
+    resolved_role: str | None,
+    decision: str,
+    detail: str,
+    principal_hash: str,
+) -> None:
+    try:
+        from .utils import new_id, now_iso
+
+        with database.connect() as con:
+            con.execute(
+                """
+                INSERT INTO api_request_audit
+                (id, method, path, required_role, resolved_role, decision, detail, principal_hash, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_id("apiaudit"),
+                    request.method,
+                    request.url.path,
+                    required_role,
+                    resolved_role,
+                    decision,
+                    detail,
+                    principal_hash,
+                    now_iso(),
+                ),
+            )
+            con.commit()
+    except Exception:
+        # Never block request flow if audit persistence is unavailable.
+        return
+
+
 def _auth_enabled() -> bool:
     auth_settings = get_settings()
     return bool(
@@ -63,10 +109,7 @@ def _role_for_api_key(api_key: str) -> str | None:
         return "admin"
     if auth_settings.api_key_editor and api_key == auth_settings.api_key_editor:
         return "editor"
-    if (
-        auth_settings.api_key_reviewer
-        and api_key == auth_settings.api_key_reviewer
-    ):
+    if auth_settings.api_key_reviewer and api_key == auth_settings.api_key_reviewer:
         return "reviewer"
     viewer_key = auth_settings.api_key_viewer or auth_settings.api_key_readonly
     if viewer_key and api_key == viewer_key:
@@ -74,40 +117,89 @@ def _role_for_api_key(api_key: str) -> str | None:
     return None
 
 
-def require_api_scope(required_role: str, api_key: str | None) -> None:
+def require_api_scope(
+    required_role: str,
+    api_key: str | None,
+    request: Request,
+) -> None:
+    principal_hash = _principal_hash(api_key)
     if not _auth_enabled():
+        _audit_api_auth_decision(
+            request=request,
+            required_role=required_role,
+            resolved_role="anonymous",
+            decision="bypassed",
+            detail="auth_disabled",
+            principal_hash=principal_hash,
+        )
         return
     if not api_key:
+        _audit_api_auth_decision(
+            request=request,
+            required_role=required_role,
+            resolved_role=None,
+            decision="denied",
+            detail="missing_api_key",
+            principal_hash=principal_hash,
+        )
         raise HTTPException(status_code=401, detail="missing_api_key")
     key_role = _role_for_api_key(api_key)
     if key_role is None:
+        _audit_api_auth_decision(
+            request=request,
+            required_role=required_role,
+            resolved_role=None,
+            decision="denied",
+            detail="invalid_api_key",
+            principal_hash=principal_hash,
+        )
         raise HTTPException(status_code=403, detail="invalid_api_key")
     if ROLE_LEVELS[key_role] < ROLE_LEVELS[required_role]:
+        _audit_api_auth_decision(
+            request=request,
+            required_role=required_role,
+            resolved_role=key_role,
+            decision="denied",
+            detail="insufficient_api_scope",
+            principal_hash=principal_hash,
+        )
         raise HTTPException(status_code=403, detail="insufficient_api_scope")
+    _audit_api_auth_decision(
+        request=request,
+        required_role=required_role,
+        resolved_role=key_role,
+        decision="allowed",
+        detail="",
+        principal_hash=principal_hash,
+    )
 
 
 def require_viewer_api_key(
+    request: Request,
     x_feme_api_key: str | None = Header(default=None, alias="X-FEME-API-Key"),
 ) -> None:
-    require_api_scope("viewer", x_feme_api_key)
+    require_api_scope("viewer", x_feme_api_key, request)
 
 
 def require_reviewer_api_key(
+    request: Request,
     x_feme_api_key: str | None = Header(default=None, alias="X-FEME-API-Key"),
 ) -> None:
-    require_api_scope("reviewer", x_feme_api_key)
+    require_api_scope("reviewer", x_feme_api_key, request)
 
 
 def require_editor_api_key(
+    request: Request,
     x_feme_api_key: str | None = Header(default=None, alias="X-FEME-API-Key"),
 ) -> None:
-    require_api_scope("editor", x_feme_api_key)
+    require_api_scope("editor", x_feme_api_key, request)
 
 
 def require_admin_api_key(
+    request: Request,
     x_feme_api_key: str | None = Header(default=None, alias="X-FEME-API-Key"),
 ) -> None:
-    require_api_scope("admin", x_feme_api_key)
+    require_api_scope("admin", x_feme_api_key, request)
 
 
 class IngestRequest(BaseModel):
@@ -210,13 +302,9 @@ def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
     if req.extract_claims:
         governor = MemoryWriteGovernor(database)
         contradiction = ContradictionEngine(database)
-        candidates = extract_candidates_for_evidence(
-            database, result["evidence_id"]
-        )
+        candidates = extract_candidates_for_evidence(database, result["evidence_id"])
         for candidate in candidates:
-            write = governor.commit_candidate(
-                candidate, project_id=req.project_id
-            )
+            write = governor.commit_candidate(candidate, project_id=req.project_id)
             if write.matched_claim_id:
                 contradictions.extend(
                     contradiction.scan_new_claim(write.matched_claim_id)
@@ -243,9 +331,7 @@ def search(req: SearchRequest, _auth: None = Depends(require_viewer_api_key)):
 
 
 @app.post("/context")
-def context(
-    req: ContextRequest, _auth: None = Depends(require_viewer_api_key)
-):
+def context(req: ContextRequest, _auth: None = Depends(require_viewer_api_key)):
     return (
         ContextBuilder(database)
         .build(
@@ -259,17 +345,13 @@ def context(
 
 
 @app.post("/verify")
-def verify(
-    req: VerifyAnswerRequest, _auth: None = Depends(require_viewer_api_key)
-):
+def verify(req: VerifyAnswerRequest, _auth: None = Depends(require_viewer_api_key)):
     packet = ContextBuilder(database).build(
         req.question, project_id=req.project_id, token_budget=req.token_budget
     )
     verifier = AnswerVerifier(database)
     if req.answer_text:
-        return verifier.verify_answer_text(
-            packet, req.answer_text
-        ).model_dump()
+        return verifier.verify_answer_text(packet, req.answer_text).model_dump()
     return verifier.verify_context(packet).model_dump()
 
 
@@ -324,9 +406,7 @@ def list_projects(_auth: None = Depends(require_viewer_api_key)):
 
 
 @app.get("/projects/{project_id}/stats")
-def project_stats(
-    project_id: str, _auth: None = Depends(require_viewer_api_key)
-):
+def project_stats(project_id: str, _auth: None = Depends(require_viewer_api_key)):
     return ProjectManager(database).stats(project_id)
 
 
@@ -336,9 +416,7 @@ def review_pending(
     limit: int = 50,
     _auth: None = Depends(require_reviewer_api_key),
 ):
-    return ReviewQueue(database).list_pending(
-        project_id=project_id, limit=limit
-    )
+    return ReviewQueue(database).list_pending(project_id=project_id, limit=limit)
 
 
 @app.post("/review/action")
@@ -388,9 +466,7 @@ def source_list(
 
 
 @app.post("/sources")
-def source_set(
-    req: SourceSetRequest, _auth: None = Depends(require_admin_api_key)
-):
+def source_set(req: SourceSetRequest, _auth: None = Depends(require_admin_api_key)):
     return SourceRegistry(database).upsert(
         req.source_type,
         project_id=req.project_id,
@@ -428,15 +504,11 @@ def citations(
         token_budget=req.token_budget,
         include_pending_review=req.include_pending_review,
     )
-    return CitationManager(database).citations_for_context(
-        packet, persist=persist
-    )
+    return CitationManager(database).citations_for_context(packet, persist=persist)
 
 
 @app.post("/answer/scaffold")
-def answer_scaffold(
-    req: ContextRequest, _auth: None = Depends(require_viewer_api_key)
-):
+def answer_scaffold(req: ContextRequest, _auth: None = Depends(require_viewer_api_key)):
     return GroundedAnswerBuilder(database).build_scaffold(
         req.question,
         project_id=req.project_id,
@@ -481,9 +553,7 @@ def retention_history(
     limit: int = 100,
     _auth: None = Depends(require_viewer_api_key),
 ):
-    return RetentionManager(database).history(
-        project_id=project_id, limit=limit
-    )
+    return RetentionManager(database).history(project_id=project_id, limit=limit)
 
 
 @app.post("/maintenance/rebuild-fts")
@@ -561,9 +631,7 @@ def claim_clusters(
 
 
 @app.post("/eval/cases")
-def eval_add_case(
-    req: EvalCaseRequest, _auth: None = Depends(require_editor_api_key)
-):
+def eval_add_case(req: EvalCaseRequest, _auth: None = Depends(require_editor_api_key)):
     return RetrievalEvalSuite(database).add_case(
         query=req.query,
         expected_claim_ids=req.expected_claim_ids,

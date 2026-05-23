@@ -126,6 +126,22 @@ CREATE INDEX IF NOT EXISTS idx_support_spans_claim ON claim_support_spans(claim_
 CREATE INDEX IF NOT EXISTS idx_support_spans_evidence ON claim_support_spans(evidence_id);
 """
 
+V11_API_REQUEST_AUDIT_SQL = """
+CREATE TABLE IF NOT EXISTS api_request_audit (
+    id TEXT PRIMARY KEY,
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    required_role TEXT NOT NULL,
+    resolved_role TEXT,
+    decision TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    principal_hash TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_request_audit_created ON api_request_audit(created_at);
+"""
+
 
 class MigrationManager:
     def __init__(self, db: Database):
@@ -184,6 +200,17 @@ class MigrationManager:
                     name="v0.7.1 claim support spans",
                     checksum=hashlib.sha256(
                         V10_CLAIM_SUPPORT_SPANS_SQL.encode("utf-8")
+                    ).hexdigest(),
+                    applied=applied,
+                )
+
+            if self._try_executescript(con, V11_API_REQUEST_AUDIT_SQL):
+                self._record_migration(
+                    con,
+                    migration_id="011_api_request_audit",
+                    name="v0.7.1 api request auth audit",
+                    checksum=hashlib.sha256(
+                        V11_API_REQUEST_AUDIT_SQL.encode("utf-8")
                     ).hexdigest(),
                     applied=applied,
                 )

@@ -15,6 +15,7 @@
 - Expanded exact-span regression tests to verify token offsets are persisted and exposed in citations.
 - Moved entity extraction and timeline generation into the same ingestion transaction as evidence/chunk writes.
 - Added rollback regression coverage so timeline side-effect failures do not leave partial ingest artifacts.
+- Added per-request API auth audit tracing for protected routes (method/path, required role, resolved role, decision, detail, principal hash).
 
 ## v0.7.0 - PostgreSQL Proof + Runtime Hygiene
 

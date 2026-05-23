@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
 
 import pytest
@@ -13,9 +14,7 @@ def _db(tmp_path) -> Database:
     return db
 
 
-def _load_api(
-    monkeypatch, tmp_path, *, readonly_key: str = "", admin_key: str = ""
-):
+def _load_api(monkeypatch, tmp_path, *, readonly_key: str = "", admin_key: str = ""):
     monkeypatch.setenv("FEME_DB_BACKEND", "sqlite")
     monkeypatch.setenv("FEME_DB_PATH", str(tmp_path / "api.sqlite"))
     monkeypatch.delenv("FEME_POSTGRES_DSN", raising=False)
@@ -56,9 +55,7 @@ def _load_api_with_roles(
     monkeypatch.setenv("FEME_API_KEY_ADMIN", admin_key)
     monkeypatch.setenv(
         "FEME_API_AUTH_REQUIRED",
-        "true"
-        if (viewer_key or reviewer_key or editor_key or admin_key)
-        else "false",
+        "true" if (viewer_key or reviewer_key or editor_key or admin_key) else "false",
     )
 
     config = importlib.import_module("feme.config")
@@ -115,13 +112,42 @@ def test_api_write_endpoints_require_admin_key(tmp_path, monkeypatch):
             json={"query": "auth", "project_id": "auth", "top_k": 5},
         )
         assert readonly_search.status_code == 200
+
+        with db.connect() as con:
+            rows = con.execute(
+                """
+                SELECT path, required_role, resolved_role, decision, detail, principal_hash
+                FROM api_request_audit
+                ORDER BY created_at
+                """
+            ).fetchall()
+        assert rows
+        assert any(
+            r["path"] == "/ingest/governed"
+            and r["decision"] == "denied"
+            and r["detail"] == "missing_api_key"
+            and r["required_role"] == "editor"
+            for r in rows
+        )
+        assert any(
+            r["path"] == "/ingest/governed"
+            and r["decision"] == "denied"
+            and r["detail"] == "insufficient_api_scope"
+            and r["resolved_role"] == "viewer"
+            for r in rows
+        )
+        assert any(
+            r["path"] == "/ingest/governed"
+            and r["decision"] == "allowed"
+            and r["resolved_role"] == "admin"
+            and r["principal_hash"] == hashlib.sha256(b"admin-key").hexdigest()[:16]
+            for r in rows
+        )
     finally:
         api.database = original_db
 
 
-def test_api_write_endpoints_allow_legacy_mode_without_keys(
-    tmp_path, monkeypatch
-):
+def test_api_write_endpoints_allow_legacy_mode_without_keys(tmp_path, monkeypatch):
     fastapi_testclient = pytest.importorskip("fastapi.testclient")
 
     api = _load_api(monkeypatch, tmp_path)
@@ -171,10 +197,7 @@ def test_api_role_scopes_viewer_reviewer_editor_admin(tmp_path, monkeypatch):
             headers={"X-FEME-API-Key": "viewer-key"},
         )
         assert viewer_review_pending.status_code == 403
-        assert (
-            viewer_review_pending.json()["detail"]
-            == "insufficient_api_scope"
-        )
+        assert viewer_review_pending.json()["detail"] == "insufficient_api_scope"
 
         reviewer_pending = client.get(
             "/review/pending",
@@ -209,5 +232,36 @@ def test_api_role_scopes_viewer_reviewer_editor_admin(tmp_path, monkeypatch):
             headers={"X-FEME-API-Key": "admin-key"},
         )
         assert admin_backup.status_code == 200
+
+        with db.connect() as con:
+            rows = con.execute(
+                """
+                SELECT path, required_role, resolved_role, decision, detail
+                FROM api_request_audit
+                ORDER BY created_at
+                """
+            ).fetchall()
+        assert any(
+            r["path"] == "/search"
+            and r["required_role"] == "viewer"
+            and r["resolved_role"] == "viewer"
+            and r["decision"] == "allowed"
+            for r in rows
+        )
+        assert any(
+            r["path"] == "/review/pending"
+            and r["required_role"] == "reviewer"
+            and r["resolved_role"] == "viewer"
+            and r["decision"] == "denied"
+            and r["detail"] == "insufficient_api_scope"
+            for r in rows
+        )
+        assert any(
+            r["path"] == "/backup"
+            and r["required_role"] == "admin"
+            and r["resolved_role"] == "admin"
+            and r["decision"] == "allowed"
+            for r in rows
+        )
     finally:
         api.database = original_db

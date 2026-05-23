@@ -74,5 +74,5 @@ The hashing embedder is deterministic and offline, but weak. Replace with a loca
 1. Port EvidenceIngestor, RetrievalPlanner, ReviewQueue, and RetentionManager onto the `MemoryStore` contract.
 2. Expand PostgreSQL parity/load testing and preserve live proof artifacts in release evidence.
 3. Add queue-backed ingestion workers for PDFs/HTML/legal XML/source snapshots.
-4. Add per-request auth principal/role audit tracing for protected API operations.
+4. Add auth-audit anomaly reporting (invalid-key spikes, denied-scope hotspots, unusual route access patterns).
 5. Add per-answer sentence-to-citation verification before any public output layer.

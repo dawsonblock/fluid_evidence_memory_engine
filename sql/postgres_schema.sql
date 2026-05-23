@@ -206,6 +206,18 @@ CREATE TABLE IF NOT EXISTS memory_write_audit (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS api_request_audit (
+    id TEXT PRIMARY KEY,
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    required_role TEXT NOT NULL,
+    resolved_role TEXT,
+    decision TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    principal_hash TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS lifecycle_events (
     id TEXT PRIMARY KEY,
     claim_id TEXT NOT NULL REFERENCES memory_claims(id) ON DELETE CASCADE,
@@ -440,3 +452,4 @@ CREATE INDEX IF NOT EXISTS idx_ledger_project_created ON memory_ledger(project_i
 CREATE INDEX IF NOT EXISTS idx_ledger_object ON memory_ledger(object_type, object_id);
 CREATE INDEX IF NOT EXISTS idx_claim_clusters_project ON claim_clusters(project_id, cluster_key);
 CREATE INDEX IF NOT EXISTS idx_eval_cases_project ON retrieval_eval_cases(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_api_request_audit_created ON api_request_audit(created_at);

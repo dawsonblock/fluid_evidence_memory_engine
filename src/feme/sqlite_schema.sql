@@ -179,6 +179,18 @@ CREATE TABLE IF NOT EXISTS memory_write_audit (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS api_request_audit (
+    id TEXT PRIMARY KEY,
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    required_role TEXT NOT NULL,
+    resolved_role TEXT,
+    decision TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    principal_hash TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS lifecycle_events (
     id TEXT PRIMARY KEY,
     claim_id TEXT NOT NULL REFERENCES memory_claims(id) ON DELETE CASCADE,
@@ -208,6 +220,7 @@ CREATE INDEX IF NOT EXISTS idx_support_spans_evidence ON claim_support_spans(evi
 CREATE INDEX IF NOT EXISTS idx_entities_norm ON entities(normalized_name, entity_type);
 CREATE INDEX IF NOT EXISTS idx_mentions_entity ON entity_mentions(entity_id);
 CREATE INDEX IF NOT EXISTS idx_lifecycle_claim ON lifecycle_events(claim_id);
+CREATE INDEX IF NOT EXISTS idx_api_request_audit_created ON api_request_audit(created_at);
 
 -- v0.3 governance, review, integrity, and provenance extensions
 CREATE TABLE IF NOT EXISTS schema_meta (
