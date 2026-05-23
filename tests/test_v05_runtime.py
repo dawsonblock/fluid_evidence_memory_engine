@@ -21,7 +21,14 @@ def _db(tmp_path: Path) -> Database:
 
 def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
     db = _db(tmp_path)
-    assert db.schema_version() in {"0.5.0", "0.6.0", "0.7.0", "0.7.1", "0.7.2"}
+    assert db.schema_version() in {
+        "0.5.0",
+        "0.6.0",
+        "0.7.0",
+        "0.7.1",
+        "0.7.2",
+        "0.7.3",
+    }
     health = runtime_health(db)
     assert health["health"]["ok"] is True
     assert health["embeddings"]["provider"] == "hashing-embedding-v1"

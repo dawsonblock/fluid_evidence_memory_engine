@@ -35,7 +35,7 @@ from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.2")
+app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.3")
 settings = get_settings()
 database = make_database()
 database.init()
@@ -247,6 +247,8 @@ class VerifyAnswerRequest(BaseModel):
     answer_text: str | None = None
     project_id: str = "default"
     token_budget: int = 12000
+    retrieval_mode: Literal["public", "internal"] | None = None
+    include_pending_review: bool = False
 
 
 class SourceSetRequest(BaseModel):
@@ -284,7 +286,7 @@ class EvalCaseRequest(BaseModel):
 def health():
     return {
         "status": "ok",
-        "version": "0.7.2",
+        "version": "0.7.3",
         "db_backend": settings.db_backend,
         "db_path": getattr(database, "path", settings.db_path),
         "runtime": runtime_health(database),
@@ -352,7 +354,11 @@ def context(req: ContextRequest, _auth: None = Depends(require_viewer_api_key)):
 @app.post("/verify")
 def verify(req: VerifyAnswerRequest, _auth: None = Depends(require_viewer_api_key)):
     packet = ContextBuilder(database).build(
-        req.question, project_id=req.project_id, token_budget=req.token_budget
+        req.question,
+        project_id=req.project_id,
+        token_budget=req.token_budget,
+        retrieval_mode=req.retrieval_mode,
+        include_pending_review=req.include_pending_review,
     )
     verifier = AnswerVerifier(database)
     if req.answer_text:

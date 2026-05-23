@@ -4,6 +4,8 @@
 
 Current extraction is heuristic. Replace with a strict JSON LLM adapter:
 
+Top-level payload key may be either `claims` or `candidates`.
+
 ```json
 {
   "claims": [

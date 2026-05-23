@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fluid-evidence-memory-engine"
-version = "0.7.2"
+version = "0.7.3"
 description = "Token-anchored claim memory with evidence links, lifecycle control, verification, review workflow, source governance, citation packets, retention, auditable retrieval, runtime storage adapters, migrations, ledger governance, and a runnable PostgreSQL backend."
 readme = "README.md"
 requires-python = ">=3.10"

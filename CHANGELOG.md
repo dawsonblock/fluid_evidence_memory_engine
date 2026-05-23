@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.3 - Verification Boundary + Extractor Hardening
+
+- Fixed `/verify` retrieval boundary leakage by wiring `retrieval_mode` and `include_pending_review` into verification context construction.
+- Added explicit `publication_blocked` verification signal when pending-review claims/evidence are included in answer context.
+- Hardened JSON claim extractor adapter to accept both `candidates` and `claims` payload keys.
+- Enforced strict `support_quote_text` equality to the declared evidence char span.
+- Rejected zero-length token spans in structured extractor payloads.
+- Added regression tests for verify boundary defaults/publication blocking and JSON adapter strictness paths.
+- Bumped package/runtime/schema metadata to `0.7.3`.
+
 ## v0.7.2 - Review Boundary Hardening
 
 - Enforced strict pending-review filtering for chunk retrieval and context support evidence when `include_pending_review=false`.

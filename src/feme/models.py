@@ -179,6 +179,7 @@ class VerificationReport(BaseModel):
     checked_claim_ids: list[str] = Field(default_factory=list)
     checked_span_ids: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    publication_blocked: bool = False
 
 
 class EvaluationCase(BaseModel):

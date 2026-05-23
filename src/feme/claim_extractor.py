@@ -189,6 +189,8 @@ def _normalize_json_candidates_payload(
         return [item for item in payload if isinstance(item, dict)]
     if isinstance(payload, dict):
         candidates = payload.get("candidates")
+        if not isinstance(candidates, list):
+            candidates = payload.get("claims")
         if isinstance(candidates, list):
             return [item for item in candidates if isinstance(item, dict)]
     return []
@@ -213,7 +215,10 @@ def _candidate_from_structured_json(
     if char_start is None or char_end is None:
         return None
 
+    has_token_span = "support_token_start" in entry or "support_token_end" in entry
     token_start, token_end = _read_token_span(entry)
+    if has_token_span and (token_start is None or token_end is None):
+        return None
     if token_start is None or token_end is None:
         token_start, token_end = _token_range_for_char_span(
             tokenized,
@@ -233,7 +238,16 @@ def _candidate_from_structured_json(
     )
 
     source_quality = float(chunk.get("source_quality", 0.5))
-    quote_text = str(entry.get("support_quote_text") or chunk_text[char_start:char_end])
+    quoted_span = chunk_text[char_start:char_end]
+    provided_quote = entry.get("support_quote_text")
+    if provided_quote is not None:
+        if not isinstance(provided_quote, str):
+            return None
+        if provided_quote != quoted_span:
+            return None
+        quote_text = provided_quote
+    else:
+        quote_text = quoted_span
     memory_type = _parse_memory_type(entry.get("memory_type"))
     metadata = dict(entry.get("metadata") or {})
     metadata.update(
@@ -308,7 +322,7 @@ def _read_token_span(entry: dict[str, Any]) -> tuple[int | None, int | None]:
     end_raw = entry.get("support_token_end")
     if not isinstance(start_raw, int) or not isinstance(end_raw, int):
         return None, None
-    if start_raw < 0 or end_raw < start_raw:
+    if start_raw < 0 or end_raw <= start_raw:
         return None, None
     return start_raw, end_raw
 

@@ -291,6 +291,39 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
             for warning in context.json()["warnings"]
         )
 
+        verify_default = client.post(
+            "/verify",
+            json={
+                "question": "What database should we use?",
+                "project_id": "p-filter",
+            },
+        )
+        assert verify_default.status_code == 200
+        verify_default_payload = verify_default.json()
+        assert verify_default_payload["publication_blocked"] is False
+        assert not any(
+            issue["type"].startswith("pending_review")
+            for issue in verify_default_payload["issues"]
+        )
+
+        verify_internal = client.post(
+            "/verify",
+            json={
+                "question": "What database should we use?",
+                "project_id": "p-filter",
+                "retrieval_mode": "internal",
+                "include_pending_review": True,
+            },
+        )
+        assert verify_internal.status_code == 200
+        verify_internal_payload = verify_internal.json()
+        assert verify_internal_payload["publication_blocked"] is True
+        assert verify_internal_payload["ok"] is False
+        assert any(
+            issue["type"] == "pending_review_claim_in_context"
+            for issue in verify_internal_payload["issues"]
+        )
+
         review = client.post(
             "/review/evidence",
             json={

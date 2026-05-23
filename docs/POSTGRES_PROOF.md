@@ -1,4 +1,4 @@
-# PostgreSQL Proof - FEME v0.7.2
+# PostgreSQL Proof - FEME v0.7.3
 
 ## Environment
 
@@ -27,7 +27,7 @@ bash scripts/postgres-proof.sh
 
 - `SKIP_SETUP=1 bash scripts/postgres-proof.sh` (Docker-backed Postgres + DSN export) -> `10 passed in 1.86s`
 - direct equivalent `pytest -q tests/test_v07_postgres_live_integration.py` with DSN set -> `10 passed`
-- `python3.10 -m pytest -q` local default environment -> `52 passed, 10 skipped`
+- `python3.10 -m pytest -q` local default environment -> `61 passed, 10 skipped`
 - default-env suite remains skip-safe when DSN/psycopg are unavailable
 
 ## Proven

@@ -19,46 +19,104 @@ class AnswerVerifier:
         issues: list[dict] = []
         checked_claim_ids: list[str] = []
         checked_span_ids: list[str] = []
+        publication_blocked = False
         for item in packet.included:
             if item.get("kind") == "claim":
                 claim_id = item.get("claim_id")
                 if claim_id:
                     checked_claim_ids.append(claim_id)
                 status = (item.get("metadata") or {}).get("status")
-                if status in {"disputed", "superseded", "rejected", "archived", "stale"}:
-                    issues.append({"severity": "high", "type": "unsafe_claim_status", "claim_id": claim_id, "status": status})
+                if status == "pending_review":
+                    publication_blocked = True
+                    issues.append(
+                        {
+                            "severity": "medium",
+                            "type": "pending_review_claim_in_context",
+                            "claim_id": claim_id,
+                        }
+                    )
+                if status in {
+                    "disputed",
+                    "superseded",
+                    "rejected",
+                    "archived",
+                    "stale",
+                }:
+                    issues.append(
+                        {
+                            "severity": "high",
+                            "type": "unsafe_claim_status",
+                            "claim_id": claim_id,
+                            "status": status,
+                        }
+                    )
                 support = item.get("supporting_evidence") or []
                 if not support:
-                    issues.append({"severity": "medium", "type": "claim_without_supporting_evidence", "claim_id": claim_id})
+                    issues.append(
+                        {
+                            "severity": "medium",
+                            "type": "claim_without_supporting_evidence",
+                            "claim_id": claim_id,
+                        }
+                    )
                 for s in support:
                     if s.get("span_id"):
                         checked_span_ids.append(s["span_id"])
             elif item.get("kind") == "chunk":
                 checked_span_ids.extend(item.get("span_ids") or [])
+                source = item.get("source") or {}
+                if source.get("review_status") == "pending_review":
+                    publication_blocked = True
+                    issues.append(
+                        {
+                            "severity": "medium",
+                            "type": "pending_review_evidence_in_context",
+                            "evidence_id": item.get("evidence_id"),
+                        }
+                    )
                 if not item.get("evidence_id"):
-                    issues.append({"severity": "medium", "type": "chunk_without_evidence_id", "id": item.get("id")})
+                    issues.append(
+                        {
+                            "severity": "medium",
+                            "type": "chunk_without_evidence_id",
+                            "id": item.get("id"),
+                        }
+                    )
         risk = "low"
         if any(i["severity"] == "high" for i in issues):
             risk = "high"
         elif issues:
             risk = "medium"
+        if publication_blocked and risk == "low":
+            risk = "medium"
         return VerificationReport(
-            ok=not issues,
+            ok=(not issues) and (not publication_blocked),
             risk_level=risk,
             issue_count=len(issues),
             issues=issues,
             checked_claim_ids=checked_claim_ids,
             checked_span_ids=checked_span_ids,
             warnings=packet.warnings,
+            publication_blocked=publication_blocked,
         )
 
-    def verify_answer_text(self, packet: ContextPacket, answer_text: str) -> VerificationReport:
+    def verify_answer_text(
+        self, packet: ContextPacket, answer_text: str
+    ) -> VerificationReport:
         report = self.verify_context(packet)
-        context_text = "\n".join(str(i.get("text", "")) for i in packet.included).lower()
+        context_text = "\n".join(
+            str(i.get("text", "")) for i in packet.included
+        ).lower()
         answer_terms = {w.lower() for w in answer_text.split() if len(w) > 5}
         unsupported = sorted(w for w in answer_terms if w not in context_text)[:15]
         if unsupported:
-            report.issues.append({"severity": "low", "type": "draft_contains_terms_not_seen_in_context", "terms": unsupported})
+            report.issues.append(
+                {
+                    "severity": "low",
+                    "type": "draft_contains_terms_not_seen_in_context",
+                    "terms": unsupported,
+                }
+            )
             report.issue_count = len(report.issues)
             if report.risk_level == "low":
                 report.risk_level = "medium"
