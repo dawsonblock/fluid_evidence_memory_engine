@@ -64,6 +64,7 @@ tests/test_contradiction.py
 tests/test_ingest.py
 tests/test_postgres_sql_splitter.py
 tests/test_retrieval.py
+tests/test_review_required_enforcement.py
 tests/test_source_registry_backend_neutral.py
 tests/test_v02_upgrade.py
 tests/test_v03_upgrade.py
