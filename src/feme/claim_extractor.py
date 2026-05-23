@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Callable
 from typing import Any, Literal, Union
 
 from .db import Database
+from .extractors import ExtractorRegistry, build_default_registry
 from .models import ClaimCandidate, MemoryLevel, MemoryType
 from .policy import MemoryPolicy
 from .token_trace import Tokenizer
@@ -64,6 +66,13 @@ JsonClaimExtractor = Callable[
 ]
 ExtractorMode = Literal["heuristic", "json_with_fallback", "json_strict"]
 
+STRICT_REJECTED = "strict_rejected"
+HEURISTIC_FALLBACK = "heuristic_fallback"
+
+
+class ExtractorAuditWriteError(RuntimeError):
+    pass
+
 
 def extract_candidates_from_chunk(
     chunk: dict,
@@ -72,6 +81,9 @@ def extract_candidates_from_chunk(
     json_claim_extractor: JsonClaimExtractor | None = None,
     extractor_mode: str = "json_with_fallback",
     extractor_provider: str | None = None,
+    extractor_schema_version: str = "claim-extraction-v1",
+    extractor_config: dict[str, Any] | None = None,
+    provider_registry: ExtractorRegistry | None = None,
 ) -> list[ClaimCandidate]:
     candidates, _, _ = _extract_candidates_with_status(
         chunk,
@@ -79,6 +91,9 @@ def extract_candidates_from_chunk(
         json_claim_extractor=json_claim_extractor,
         extractor_mode=extractor_mode,
         extractor_provider=extractor_provider,
+        extractor_schema_version=extractor_schema_version,
+        extractor_config=extractor_config,
+        provider_registry=provider_registry,
     )
     return candidates
 
@@ -90,66 +105,127 @@ def _extract_candidates_with_status(
     json_claim_extractor: JsonClaimExtractor | None = None,
     extractor_mode: str = "json_with_fallback",
     extractor_provider: str | None = None,
+    extractor_schema_version: str = "claim-extraction-v1",
+    extractor_config: dict[str, Any] | None = None,
+    provider_registry: ExtractorRegistry | None = None,
 ) -> tuple[list[ClaimCandidate], str, str | None]:
     policy = policy or MemoryPolicy.default()
     text = str(chunk.get("text") or "")
-    provider_label = _resolve_provider_label(extractor_provider, extractor_mode)
+    if extractor_mode not in {
+        "heuristic",
+        "json_with_fallback",
+        "json_strict",
+    }:
+        extractor_mode = "json_with_fallback"
+    provider_label = _resolve_provider_label(
+        extractor_provider,
+        extractor_mode,
+    )
+    strict_mode = extractor_mode == "json_strict"
     if not text:
+        if strict_mode:
+            return [], STRICT_REJECTED, "chunk_text_empty"
         return [], "structured_empty", "chunk_text_empty"
 
-    if extractor_mode not in {"heuristic", "json_with_fallback", "json_strict"}:
-        extractor_mode = "json_with_fallback"
+    if extractor_mode == "heuristic":
+        heuristic = _heuristic_candidates(
+            text,
+            chunk,
+            policy,
+            extractor_provider="heuristic",
+        )
+        return heuristic, "heuristic_success", None
 
-    if extractor_mode != "heuristic" and json_claim_extractor is not None:
+    registry = provider_registry or build_default_registry()
+    provider = registry.get(provider_label)
+
+    if json_claim_extractor is None and provider is None:
+        if strict_mode:
+            return [], STRICT_REJECTED, "structured_extractor_unavailable"
+        heuristic = _heuristic_candidates(
+            text,
+            chunk,
+            policy,
+            extractor_provider="heuristic",
+        )
+        return (
+            heuristic,
+            HEURISTIC_FALLBACK,
+            "structured_extractor_unavailable",
+        )
+
+    if json_claim_extractor is not None or provider is not None:
         try:
-            payload = json_claim_extractor(text, dict(chunk))
-            structured = _structured_candidates_from_json(
+            if json_claim_extractor is not None:
+                payload = json_claim_extractor(text, dict(chunk))
+            else:
+                if provider is None:
+                    raise RuntimeError("structured provider unavailable")
+                payload = provider.extract(
+                    text,
+                    {
+                        **dict(chunk),
+                        "extractor_mode": extractor_mode,
+                        "extractor_schema_version": extractor_schema_version,
+                        "extractor_config": extractor_config or {},
+                    },
+                )
+            structured, invalid_reason = _structured_candidates_from_json(
                 payload,
                 dict(chunk),
                 policy,
-                extractor_provider=provider_label,
+                extractor_provider=provider_label or "unknown",
             )
+            if invalid_reason is not None:
+                if strict_mode:
+                    return [], STRICT_REJECTED, invalid_reason
+                heuristic = _heuristic_candidates(
+                    text,
+                    chunk,
+                    policy,
+                    extractor_provider="heuristic",
+                )
+                return heuristic, HEURISTIC_FALLBACK, invalid_reason
             if structured:
                 return structured, "structured_success", None
-            if extractor_mode == "json_strict":
-                return [], "strict_rejected", "structured_empty"
+            if strict_mode:
+                return [], STRICT_REJECTED, "invalid_structured_output"
         except Exception as exc:
-            if extractor_mode == "json_strict":
+            if strict_mode:
                 return (
                     [],
-                    "strict_rejected",
-                    f"structured_error:{exc.__class__.__name__}",
+                    STRICT_REJECTED,
+                    f"provider_error:{exc.__class__.__name__}",
                 )
-            # Structured extraction is optional; fall back to deterministic heuristics.
+            # Structured extraction is optional.
+            # Fall back to deterministic heuristics when not strict.
             heuristic = _heuristic_candidates(
                 text,
                 chunk,
                 policy,
-                extractor_provider=provider_label,
+                extractor_provider="heuristic",
             )
             return (
                 heuristic,
-                "heuristic_fallback",
-                f"structured_error:{exc.__class__.__name__}",
+                HEURISTIC_FALLBACK,
+                f"provider_error:{exc.__class__.__name__}",
             )
 
         heuristic = _heuristic_candidates(
             text,
             chunk,
             policy,
-            extractor_provider=provider_label,
+            extractor_provider="heuristic",
         )
-        return heuristic, "heuristic_fallback", "structured_empty"
+        return heuristic, HEURISTIC_FALLBACK, "invalid_structured_output"
 
     heuristic = _heuristic_candidates(
         text,
         chunk,
         policy,
-        extractor_provider=provider_label,
+        extractor_provider="heuristic",
     )
-    if extractor_mode == "heuristic":
-        return heuristic, "heuristic_success", None
-    return heuristic, "heuristic_fallback", "structured_extractor_unavailable"
+    return heuristic, HEURISTIC_FALLBACK, "structured_extractor_unavailable"
 
 
 def _heuristic_candidates(
@@ -190,6 +266,11 @@ def extract_candidates_for_evidence(
     json_claim_extractor: JsonClaimExtractor | None = None,
     extractor_mode: str = "json_with_fallback",
     extractor_provider: str | None = None,
+    extractor_schema_version: str = "claim-extraction-v1",
+    extractor_config: dict[str, Any] | None = None,
+    provider_registry: ExtractorRegistry | None = None,
+    require_extractor_audit: bool = False,
+    audit_warnings: list[str] | None = None,
     *,
     con=None,
 ) -> list[ClaimCandidate]:
@@ -207,7 +288,8 @@ def extract_candidates_for_evidence(
                 LEFT JOIN token_spans ts ON ts.chunk_id = tc.id
                 LEFT JOIN evidence_sources es ON es.id = tc.evidence_id
                 LEFT JOIN source_registry sr
-                  ON sr.project_id = es.project_id AND sr.source_type = es.source_type
+                  ON sr.project_id = es.project_id
+                 AND sr.source_type = es.source_type
                 WHERE tc.evidence_id = ?
                 ORDER BY tc.chunk_index
                 """,
@@ -226,7 +308,8 @@ def extract_candidates_for_evidence(
             LEFT JOIN token_spans ts ON ts.chunk_id = tc.id
             LEFT JOIN evidence_sources es ON es.id = tc.evidence_id
             LEFT JOIN source_registry sr
-              ON sr.project_id = es.project_id AND sr.source_type = es.source_type
+              ON sr.project_id = es.project_id
+             AND sr.source_type = es.source_type
             WHERE tc.evidence_id = ?
             ORDER BY tc.chunk_index
             """,
@@ -241,20 +324,46 @@ def extract_candidates_for_evidence(
             json_claim_extractor=json_claim_extractor,
             extractor_mode=extractor_mode,
             extractor_provider=extractor_provider,
+            extractor_schema_version=extractor_schema_version,
+            extractor_config=extractor_config,
+            provider_registry=provider_registry,
         )
-        _persist_extractor_audit(
-            db,
-            chunk=chunk,
-            extractor_mode=extractor_mode,
-            extractor_provider=_resolve_provider_label(
-                extractor_provider,
-                extractor_mode,
-            ),
-            outcome=outcome,
-            candidate_count=len(chunk_candidates),
-            detail=detail,
-            con=con,
+        provider_label = _resolve_provider_label(
+            extractor_provider,
+            extractor_mode,
         )
+        provider = (
+            provider_registry or build_default_registry()
+        ).get(provider_label)
+        fallback_used = outcome == HEURISTIC_FALLBACK
+        error_type = _error_type_from_detail(detail)
+        try:
+            _persist_extractor_audit(
+                db,
+                chunk=chunk,
+                extractor_mode=extractor_mode,
+                extractor_provider=provider_label or "none",
+                provider_version=getattr(provider, "version", "unknown"),
+                extractor_schema_version=extractor_schema_version,
+                extractor_config=extractor_config,
+                outcome=outcome,
+                candidate_count=len(chunk_candidates),
+                detail=detail,
+                strict_mode=extractor_mode == "json_strict",
+                fallback_used=fallback_used,
+                error_type=error_type,
+                require_success=require_extractor_audit,
+                con=con,
+            )
+        except ExtractorAuditWriteError:
+            raise
+        except Exception as exc:
+            if require_extractor_audit:
+                raise ExtractorAuditWriteError(str(exc)) from exc
+            if audit_warnings is not None:
+                audit_warnings.append(
+                    f"audit_write_failed:{exc.__class__.__name__}"
+                )
         candidates.extend(chunk_candidates)
     return candidates
 
@@ -265,17 +374,18 @@ def _structured_candidates_from_json(
     policy: MemoryPolicy,
     *,
     extractor_provider: str,
-) -> list[ClaimCandidate]:
+) -> tuple[list[ClaimCandidate], str | None]:
     entries = _normalize_json_candidates_payload(payload)
     if not entries:
-        return []
+        return [], "invalid_json"
 
     out: list[ClaimCandidate] = []
     chunk_text = str(chunk.get("text") or "")
     tokenized = Tokenizer().tokenize(chunk_text)
+    invalid_reason: str | None = None
 
     for entry in entries:
-        candidate = _candidate_from_structured_json(
+        candidate, reason = _candidate_from_structured_json(
             entry,
             chunk,
             chunk_text=chunk_text,
@@ -283,9 +393,15 @@ def _structured_candidates_from_json(
             policy=policy,
             extractor_provider=extractor_provider,
         )
+        if reason is not None and invalid_reason is None:
+            invalid_reason = reason
         if candidate is not None:
             out.append(candidate)
-    return out
+    if invalid_reason is not None:
+        return out, invalid_reason
+    if not out:
+        return [], "invalid_schema"
+    return out, None
 
 
 def _normalize_json_candidates_payload(
@@ -310,22 +426,25 @@ def _candidate_from_structured_json(
     tokenized,
     policy: MemoryPolicy,
     extractor_provider: str,
-) -> ClaimCandidate | None:
+) -> tuple[ClaimCandidate | None, str | None]:
     subject = _required_str(entry, "subject")
     predicate = _required_str(entry, "predicate")
     obj = _required_str(entry, "object")
     claim_text = _required_str(entry, "claim_text")
     if not (subject and predicate and obj and claim_text):
-        return None
+        return None, "invalid_schema"
 
-    char_start, char_end = _read_char_span(entry, chunk_text)
+    char_start, char_end, span_reason = _read_char_span(entry, chunk_text)
     if char_start is None or char_end is None:
-        return None
+        return None, span_reason or "invalid_schema"
 
-    has_token_span = "support_token_start" in entry or "support_token_end" in entry
-    token_start, token_end = _read_token_span(entry)
+    has_token_span = (
+        "support_token_start" in entry
+        or "support_token_end" in entry
+    )
+    token_start, token_end, token_reason = _read_token_span(entry)
     if has_token_span and (token_start is None or token_end is None):
-        return None
+        return None, token_reason or "invalid_schema"
     if token_start is None or token_end is None:
         token_start, token_end = _token_range_for_char_span(
             tokenized,
@@ -349,9 +468,9 @@ def _candidate_from_structured_json(
     provided_quote = entry.get("support_quote_text")
     if provided_quote is not None:
         if not isinstance(provided_quote, str):
-            return None
+            return None, "invalid_schema"
         if provided_quote != quoted_span:
-            return None
+            return None, "support_quote_mismatch"
         quote_text = provided_quote
     else:
         quote_text = quoted_span
@@ -373,34 +492,52 @@ def _candidate_from_structured_json(
         }
     )
 
-    return ClaimCandidate(
-        subject=subject[:240],
-        predicate=predicate[:120],
-        object=obj[:500],
-        claim_text=claim_text,
-        memory_type=memory_type,
-        memory_level=MemoryLevel.project_memory,
-        confidence=_float_or_default(entry.get("confidence"), 0.64),
-        salience=_float_or_default(entry.get("salience"), 0.68),
-        source_quality=source_quality,
-        user_explicitness=_float_or_default(entry.get("user_explicitness"), 0.9),
-        long_term_usefulness=_float_or_default(entry.get("long_term_usefulness"), 0.78),
-        project_relevance=_float_or_default(entry.get("project_relevance"), 0.9),
-        actionability=_float_or_default(entry.get("actionability"), 0.72),
-        contradiction_value=_float_or_default(entry.get("contradiction_value"), 0.0),
-        privacy_sensitivity=policy.privacy_sensitivity_for_text(claim_text),
-        uncertainty=_float_or_default(entry.get("uncertainty"), 0.18),
-        triviality=_float_or_default(entry.get("triviality"), 0.05),
-        short_livedness=_float_or_default(entry.get("short_livedness"), 0.05),
-        evidence_id=chunk.get("evidence_id"),
-        chunk_id=chunk.get("id"),
-        span_id=chunk.get("span_id"),
-        support_char_start=support_char_start_abs,
-        support_char_end=support_char_end_abs,
-        support_token_start=support_token_start_abs,
-        support_token_end=support_token_end_abs,
-        support_quote_text=quote_text,
-        metadata=metadata,
+    return (
+        ClaimCandidate(
+            subject=subject[:240],
+            predicate=predicate[:120],
+            object=obj[:500],
+            claim_text=claim_text,
+            memory_type=memory_type,
+            memory_level=MemoryLevel.project_memory,
+            confidence=_float_or_default(entry.get("confidence"), 0.64),
+            salience=_float_or_default(entry.get("salience"), 0.68),
+            source_quality=source_quality,
+            user_explicitness=_float_or_default(
+                entry.get("user_explicitness"),
+                0.9,
+            ),
+            long_term_usefulness=_float_or_default(
+                entry.get("long_term_usefulness"), 0.78
+            ),
+            project_relevance=_float_or_default(
+                entry.get("project_relevance"),
+                0.9,
+            ),
+            actionability=_float_or_default(entry.get("actionability"), 0.72),
+            contradiction_value=_float_or_default(
+                entry.get("contradiction_value"), 0.0
+            ),
+            privacy_sensitivity=policy.privacy_sensitivity_for_text(
+                claim_text,
+            ),
+            uncertainty=_float_or_default(entry.get("uncertainty"), 0.18),
+            triviality=_float_or_default(entry.get("triviality"), 0.05),
+            short_livedness=_float_or_default(
+                entry.get("short_livedness"),
+                0.05,
+            ),
+            evidence_id=chunk.get("evidence_id"),
+            chunk_id=chunk.get("id"),
+            span_id=chunk.get("span_id"),
+            support_char_start=support_char_start_abs,
+            support_char_end=support_char_end_abs,
+            support_token_start=support_token_start_abs,
+            support_token_end=support_token_end_abs,
+            support_quote_text=quote_text,
+            metadata=metadata,
+        ),
+        None,
     )
 
 
@@ -415,7 +552,7 @@ def _required_str(entry: dict[str, Any], key: str) -> str | None:
 def _read_char_span(
     entry: dict[str, Any],
     chunk_text: str,
-) -> tuple[int | None, int | None]:
+) -> tuple[int | None, int | None, str | None]:
     start_raw = entry.get("support_char_start")
     end_raw = entry.get("support_char_end")
     if not isinstance(start_raw, int) or not isinstance(end_raw, int):
@@ -424,20 +561,24 @@ def _read_char_span(
             start_raw = evidence_span.get("char_start")
             end_raw = evidence_span.get("char_end")
     if not isinstance(start_raw, int) or not isinstance(end_raw, int):
-        return None, None
-    if start_raw < 0 or end_raw <= start_raw or end_raw > len(chunk_text):
-        return None, None
-    return start_raw, end_raw
+        return None, None, "invalid_schema"
+    if start_raw < 0 or end_raw > len(chunk_text):
+        return None, None, "invalid_schema"
+    if end_raw <= start_raw:
+        return None, None, "zero_length_span"
+    return start_raw, end_raw, None
 
 
-def _read_token_span(entry: dict[str, Any]) -> tuple[int | None, int | None]:
+def _read_token_span(
+    entry: dict[str, Any],
+) -> tuple[int | None, int | None, str | None]:
     start_raw = entry.get("support_token_start")
     end_raw = entry.get("support_token_end")
     if not isinstance(start_raw, int) or not isinstance(end_raw, int):
-        return None, None
+        return None, None, "invalid_schema"
     if start_raw < 0 or end_raw <= start_raw:
-        return None, None
-    return start_raw, end_raw
+        return None, None, "zero_length_span"
+    return start_raw, end_raw, None
 
 
 def _parse_memory_type(value: Any) -> MemoryType:
@@ -493,7 +634,9 @@ def _sentence_to_candidate(
 ) -> ClaimCandidate | None:
     lowered = sentence.lower()
     explicitness = 1.0 if any(m in lowered for m in EXPLICIT_MARKERS) else 0.2
-    project_relevance = 0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
+    project_relevance = (
+        0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
+    )
 
     patterns = [
         (r"use\s+(.+?)\s+as\s+(.+)", "uses_as"),
@@ -547,7 +690,9 @@ def _sentence_to_candidate(
         else None
     )
     support_char_end_abs = (
-        chunk_char_start + support_char_end if support_char_end is not None else None
+        chunk_char_start + support_char_end
+        if support_char_end is not None
+        else None
     )
     chunk_token_start = int(chunk.get("token_start") or 0)
     support_token_start_abs = (
@@ -556,7 +701,9 @@ def _sentence_to_candidate(
         else None
     )
     support_token_end_abs = (
-        chunk_token_start + support_token_end if support_token_end is not None else None
+        chunk_token_start + support_token_end
+        if support_token_end is not None
+        else None
     )
 
     return ClaimCandidate(
@@ -584,7 +731,9 @@ def _sentence_to_candidate(
             )
             else 0.4
         ),
-        contradiction_value=0.65 if memory_type == MemoryType.correction else 0.0,
+        contradiction_value=(
+            0.65 if memory_type == MemoryType.correction else 0.0
+        ),
         privacy_sensitivity=privacy_sensitivity,
         uncertainty=0.45 if memory_type == MemoryType.inference else 0.18,
         triviality=0.05 if project_relevance >= 0.7 else 0.25,
@@ -625,7 +774,31 @@ def _resolve_provider_label(
         return extractor_provider.strip()
     if extractor_mode == "heuristic":
         return "heuristic"
-    return "structured"
+    return ""
+
+
+def _error_type_from_detail(detail: str | None) -> str | None:
+    if not isinstance(detail, str) or not detail:
+        return None
+    if ":" in detail:
+        return detail.split(":", 1)[0]
+    return detail
+
+
+def _extractor_config_hash(
+    extractor_mode: str,
+    extractor_provider: str,
+    extractor_schema_version: str,
+    extractor_config: dict[str, Any] | None,
+) -> str:
+    payload = {
+        "extractor_mode": extractor_mode,
+        "extractor_provider": extractor_provider,
+        "extractor_schema_version": extractor_schema_version,
+        "extractor_config": extractor_config or {},
+    }
+    digest = hashlib.sha256(json_dumps(payload).encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
 
 
 def _persist_extractor_audit(
@@ -634,15 +807,35 @@ def _persist_extractor_audit(
     chunk: dict[str, Any],
     extractor_mode: str,
     extractor_provider: str,
+    provider_version: str,
+    extractor_schema_version: str,
+    extractor_config: dict[str, Any] | None,
     outcome: str,
     candidate_count: int,
     detail: str | None,
+    strict_mode: bool,
+    fallback_used: bool,
+    error_type: str | None,
+    require_success: bool,
     con=None,
 ) -> None:
     metadata = {
         "chunk_index": chunk.get("chunk_index"),
         "source_type": chunk.get("source_type"),
         "review_required": bool(chunk.get("review_required", 0)),
+        "provider_name": extractor_provider,
+        "provider_version": provider_version,
+        "schema_version": extractor_schema_version,
+        "extractor_mode": extractor_mode,
+        "strict_mode": strict_mode,
+        "fallback_used": fallback_used,
+        "error_type": error_type,
+        "config_hash": _extractor_config_hash(
+            extractor_mode,
+            extractor_provider,
+            extractor_schema_version,
+            extractor_config,
+        ),
     }
     params = (
         new_id("exaudit"),
@@ -680,9 +873,12 @@ def _persist_extractor_audit(
         with db.connect() as con2:
             con2.execute(sql, params)
             con2.commit()
-    except Exception:
-        # Extraction must remain available even if audit persistence is unavailable.
-        return
+    except Exception as exc:
+        if require_success:
+            raise ExtractorAuditWriteError(
+                "extractor audit write failed"
+            ) from exc
+        raise
 
 
 def _token_range_for_char_span(

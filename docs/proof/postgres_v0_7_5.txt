@@ -1,0 +1,11 @@
+FEME v0.7.5 PostgreSQL live proof output placeholder.
+
+Run externally in an environment with psycopg installed:
+
+docker compose --profile postgres up -d postgres
+export FEME_DB_BACKEND=postgres
+export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+pytest -q tests/test_v07_postgres_live_integration.py
+
+Paste exact test output below this line when captured.

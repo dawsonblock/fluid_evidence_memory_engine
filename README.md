@@ -30,7 +30,7 @@ FEME is a practical memory runtime for systems that need grounded answers and au
 ### Core capabilities
 
 | Area | What you get |
-|---|---|
+| --- | --- |
 | Evidence integrity | Immutable source records, snapshots, and token spans |
 | Claim quality | Canonicalization, contradiction tracking, and write governance |
 | Retrieval | Hybrid retrieval with lexical + embedding-assisted ranking |
@@ -144,6 +144,23 @@ Run the full test suite:
 pytest -q
 ```
 
+Strict extractor smoke (fail-closed behavior):
+
+```bash
+feme ingest-governed \
+  --project-id p1 \
+  --source-type official_record \
+  --extractor-mode json_strict \
+  --extractor-provider missing-provider \
+  --text "FEME must use PostgreSQL as canonical memory."
+```
+
+Extraction fixture evaluation baseline:
+
+```bash
+feme eval-extraction --fixture tests/fixtures/extraction/project_decisions.jsonl
+```
+
 Run live PostgreSQL integration tests (skips when DSN is unset):
 
 ```bash
@@ -177,6 +194,7 @@ docker compose --profile test-postgres up --build --abort-on-container-exit feme
 ```bash
 feme runtime-health
 feme postgres-sql-smoke
+feme eval-extraction --fixture tests/fixtures/extraction/project_decisions.jsonl
 feme source-list --project-id default
 feme answer-scaffold "What database should the memory engine use?"
 feme citations "What database should the memory engine use?" --persist

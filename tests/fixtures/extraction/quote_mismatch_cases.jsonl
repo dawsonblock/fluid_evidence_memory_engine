@@ -1,0 +1,1 @@
+{"text":"FEME must use PostgreSQL as canonical memory.","structured_payload":{"claims":[{"claim_text":"FEME must use PostgreSQL as canonical memory.","subject":"FEME","predicate":"must_use","object":"PostgreSQL as canonical memory","support_char_start":0,"support_char_end":44,"support_quote_text":"Wrong quote"}]},"expect_strict_rejection":true}

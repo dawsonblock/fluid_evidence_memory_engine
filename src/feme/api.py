@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from .claim_extractor import extract_candidates_for_evidence
 from .config import get_settings
+from .extractors import build_default_registry
 from .context_builder import ContextBuilder
 from .contradiction import ContradictionEngine
 from .evidence import EvidenceIngestor
@@ -30,12 +31,11 @@ from .maintenance import MaintenanceManager
 from .answer_builder import GroundedAnswerBuilder
 from .runtime_pipeline import TransactionalIngestionPipeline
 from .ledger import MemoryLedger
-from .migrations import MigrationManager
 from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.4")
+app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.5")
 settings = get_settings()
 database = make_database()
 database.init()
@@ -71,7 +71,17 @@ def _audit_api_auth_decision(
             con.execute(
                 """
                 INSERT INTO api_request_audit
-                (id, method, path, required_role, resolved_role, decision, detail, principal_hash, created_at)
+                (
+                    id,
+                    method,
+                    path,
+                    required_role,
+                    resolved_role,
+                    decision,
+                    detail,
+                    principal_hash,
+                    created_at
+                )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
@@ -108,9 +118,15 @@ def _role_for_api_key(api_key: str) -> str | None:
     auth_settings = get_settings()
     if auth_settings.api_key_admin and api_key == auth_settings.api_key_admin:
         return "admin"
-    if auth_settings.api_key_editor and api_key == auth_settings.api_key_editor:
+    if (
+        auth_settings.api_key_editor
+        and api_key == auth_settings.api_key_editor
+    ):
         return "editor"
-    if auth_settings.api_key_reviewer and api_key == auth_settings.api_key_reviewer:
+    if (
+        auth_settings.api_key_reviewer
+        and api_key == auth_settings.api_key_reviewer
+    ):
         return "reviewer"
     viewer_key = auth_settings.api_key_viewer or auth_settings.api_key_readonly
     if viewer_key and api_key == viewer_key:
@@ -212,6 +228,8 @@ class IngestRequest(BaseModel):
     extract_entities: bool = True
     extractor_mode: str | None = None
     extractor_provider: str | None = None
+    extractor_schema_version: str | None = None
+    allow_evidence_only_on_extractor_failure: bool = False
 
 
 class SearchRequest(BaseModel):
@@ -277,6 +295,8 @@ class GovernedIngestRequest(BaseModel):
     extract_claims: bool = True
     extractor_mode: str | None = None
     extractor_provider: str | None = None
+    extractor_schema_version: str | None = None
+    allow_evidence_only_on_extractor_failure: bool = False
 
 
 class EvalCaseRequest(BaseModel):
@@ -290,7 +310,7 @@ class EvalCaseRequest(BaseModel):
 def health():
     return {
         "status": "ok",
-        "version": "0.7.4",
+        "version": "0.7.5",
         "db_backend": settings.db_backend,
         "db_path": getattr(database, "path", settings.db_path),
         "runtime": runtime_health(database),
@@ -301,6 +321,22 @@ def health():
 def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
     extractor_mode = req.extractor_mode or settings.extractor_mode
     extractor_provider = req.extractor_provider or settings.extractor_provider
+    extractor_schema_version = (
+        req.extractor_schema_version or settings.extractor_schema_version
+    )
+    strict_provider_invalid = extractor_mode == "json_strict" and (
+        not isinstance(extractor_provider, str)
+        or not extractor_provider.strip()
+        or build_default_registry().get(extractor_provider) is None
+    )
+    if (
+        strict_provider_invalid
+        and not req.allow_evidence_only_on_extractor_failure
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="structured_extractor_unavailable",
+        )
     result = EvidenceIngestor(database).ingest_text(
         req.text,
         source_type=req.source_type,
@@ -310,7 +346,20 @@ def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
     )
     claim_results = []
     contradictions = []
+    audit_warnings: list[str] = []
     if req.extract_claims:
+        if (
+            strict_provider_invalid
+            and req.allow_evidence_only_on_extractor_failure
+        ):
+            return {
+                "evidence": result,
+                "claim_writes": [],
+                "contradictions": [],
+                "extractor_outcome": "strict_rejected",
+                "reason": "structured_extractor_unavailable",
+                "audit_warnings": [],
+            }
         governor = MemoryWriteGovernor(database)
         contradiction = ContradictionEngine(database)
         candidates = extract_candidates_for_evidence(
@@ -318,9 +367,15 @@ def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
             result["evidence_id"],
             extractor_mode=extractor_mode,
             extractor_provider=extractor_provider,
+            extractor_schema_version=extractor_schema_version,
+            require_extractor_audit=settings.require_extractor_audit,
+            audit_warnings=audit_warnings,
         )
         for candidate in candidates:
-            write = governor.commit_candidate(candidate, project_id=req.project_id)
+            write = governor.commit_candidate(
+                candidate,
+                project_id=req.project_id,
+            )
             if write.matched_claim_id:
                 contradictions.extend(
                     contradiction.scan_new_claim(write.matched_claim_id)
@@ -330,6 +385,7 @@ def ingest(req: IngestRequest, _auth: None = Depends(require_editor_api_key)):
         "evidence": result,
         "claim_writes": claim_results,
         "contradictions": contradictions,
+        "audit_warnings": audit_warnings,
     }
 
 
@@ -348,7 +404,10 @@ def search(req: SearchRequest, _auth: None = Depends(require_viewer_api_key)):
 
 
 @app.post("/context")
-def context(req: ContextRequest, _auth: None = Depends(require_viewer_api_key)):
+def context(
+    req: ContextRequest,
+    _auth: None = Depends(require_viewer_api_key),
+):
     return (
         ContextBuilder(database)
         .build(
@@ -363,7 +422,10 @@ def context(req: ContextRequest, _auth: None = Depends(require_viewer_api_key)):
 
 
 @app.post("/verify")
-def verify(req: VerifyAnswerRequest, _auth: None = Depends(require_viewer_api_key)):
+def verify(
+    req: VerifyAnswerRequest,
+    _auth: None = Depends(require_viewer_api_key),
+):
     packet = ContextBuilder(database).build(
         req.question,
         project_id=req.project_id,
@@ -373,7 +435,10 @@ def verify(req: VerifyAnswerRequest, _auth: None = Depends(require_viewer_api_ke
     )
     verifier = AnswerVerifier(database)
     if req.answer_text:
-        return verifier.verify_answer_text(packet, req.answer_text).model_dump()
+        return verifier.verify_answer_text(
+            packet,
+            req.answer_text,
+        ).model_dump()
     return verifier.verify_context(packet).model_dump()
 
 
@@ -428,7 +493,10 @@ def list_projects(_auth: None = Depends(require_viewer_api_key)):
 
 
 @app.get("/projects/{project_id}/stats")
-def project_stats(project_id: str, _auth: None = Depends(require_viewer_api_key)):
+def project_stats(
+    project_id: str,
+    _auth: None = Depends(require_viewer_api_key),
+):
     return ProjectManager(database).stats(project_id)
 
 
@@ -438,7 +506,10 @@ def review_pending(
     limit: int = 50,
     _auth: None = Depends(require_reviewer_api_key),
 ):
-    return ReviewQueue(database).list_pending(project_id=project_id, limit=limit)
+    return ReviewQueue(database).list_pending(
+        project_id=project_id,
+        limit=limit,
+    )
 
 
 @app.post("/review/action")
@@ -488,7 +559,10 @@ def source_list(
 
 
 @app.post("/sources")
-def source_set(req: SourceSetRequest, _auth: None = Depends(require_admin_api_key)):
+def source_set(
+    req: SourceSetRequest,
+    _auth: None = Depends(require_admin_api_key),
+):
     return SourceRegistry(database).upsert(
         req.source_type,
         project_id=req.project_id,
@@ -526,11 +600,17 @@ def citations(
         token_budget=req.token_budget,
         include_pending_review=req.include_pending_review,
     )
-    return CitationManager(database).citations_for_context(packet, persist=persist)
+    return CitationManager(database).citations_for_context(
+        packet,
+        persist=persist,
+    )
 
 
 @app.post("/answer/scaffold")
-def answer_scaffold(req: ContextRequest, _auth: None = Depends(require_viewer_api_key)):
+def answer_scaffold(
+    req: ContextRequest,
+    _auth: None = Depends(require_viewer_api_key),
+):
     return GroundedAnswerBuilder(database).build_scaffold(
         req.question,
         project_id=req.project_id,
@@ -575,7 +655,10 @@ def retention_history(
     limit: int = 100,
     _auth: None = Depends(require_viewer_api_key),
 ):
-    return RetentionManager(database).history(project_id=project_id, limit=limit)
+    return RetentionManager(database).history(
+        project_id=project_id,
+        limit=limit,
+    )
 
 
 @app.post("/maintenance/rebuild-fts")
@@ -598,6 +681,8 @@ def maintenance_rebuild_embeddings(
 
 @app.post("/runtime/migrate")
 def runtime_migrate(_auth: None = Depends(require_admin_api_key)):
+    from .migrations import MigrationManager
+
     return MigrationManager(database).apply_all()
 
 
@@ -607,6 +692,41 @@ def ingest_governed(
 ):
     extractor_mode = req.extractor_mode or settings.extractor_mode
     extractor_provider = req.extractor_provider or settings.extractor_provider
+    extractor_schema_version = (
+        req.extractor_schema_version or settings.extractor_schema_version
+    )
+    strict_provider_invalid = extractor_mode == "json_strict" and (
+        not isinstance(extractor_provider, str)
+        or not extractor_provider.strip()
+        or build_default_registry().get(extractor_provider) is None
+    )
+    if (
+        strict_provider_invalid
+        and not req.allow_evidence_only_on_extractor_failure
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="structured_extractor_unavailable",
+        )
+    if (
+        strict_provider_invalid
+        and req.allow_evidence_only_on_extractor_failure
+    ):
+        result = TransactionalIngestionPipeline(database).ingest_text(
+            req.text,
+            source_type=req.source_type,
+            title=req.title,
+            source_uri=req.source_uri,
+            project_id=req.project_id,
+            actor=req.actor,
+            extract_claims=False,
+            extractor_mode=extractor_mode,
+            extractor_provider=extractor_provider,
+            extractor_schema_version=extractor_schema_version,
+        )
+        result["extractor_outcome"] = "strict_rejected"
+        result["reason"] = "structured_extractor_unavailable"
+        return result
     return TransactionalIngestionPipeline(database).ingest_text(
         req.text,
         source_type=req.source_type,
@@ -617,6 +737,7 @@ def ingest_governed(
         extract_claims=req.extract_claims,
         extractor_mode=extractor_mode,
         extractor_provider=extractor_provider,
+        extractor_schema_version=extractor_schema_version,
     )
 
 
@@ -657,7 +778,10 @@ def claim_clusters(
 
 
 @app.post("/eval/cases")
-def eval_add_case(req: EvalCaseRequest, _auth: None = Depends(require_editor_api_key)):
+def eval_add_case(
+    req: EvalCaseRequest,
+    _auth: None = Depends(require_editor_api_key),
+):
     return RetrievalEvalSuite(database).add_case(
         query=req.query,
         expected_claim_ids=req.expected_claim_ids,

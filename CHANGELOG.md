@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.7.5 - Strict Extractor Semantics + Runtime Safety
+
+- Fixed `json_strict` to fail closed when no structured extractor provider is configured or when structured output is invalid.
+- Added extractor provider interface and runtime registry with built-in `json_static` and `llm_stub` providers.
+- Added structured extractor metadata enrichment in `extractor_audit.metadata_json` (provider version, schema version, strict/fallback flags, error type, config hash).
+- Added `FEME_REQUIRE_EXTRACTOR_AUDIT` policy to fail ingestion closed when extraction audit persistence is required and unavailable.
+- Added CLI/API extractor schema version support and strict API behavior (`json_strict` missing provider returns 400 unless explicitly allowed evidence-only).
+- Added strict/fallback extractor tests, audit failure mode tests, and provider registry tests.
+- Added extraction quality fixture seeds plus `feme eval-extraction` command for baseline extraction evaluation.
+- Added retrieval benchmark starter fixture and v0.7.5 PostgreSQL proof output placeholder artifact.
+- Bumped package/runtime/schema metadata to `0.7.5`.
+
 ## v0.7.4 - Extractor Audit Persistence + Runtime Wiring
 
 - Added durable extractor audit persistence via `extractor_audit` table (SQLite/PostgreSQL schema + migration).
@@ -33,10 +45,10 @@
 - Added environment keys: `FEME_API_KEY_VIEWER`, `FEME_API_KEY_REVIEWER`, `FEME_API_KEY_EDITOR`, `FEME_API_KEY_ADMIN`.
 - Preserved legacy compatibility for `FEME_API_KEY_READONLY` and `FEME_API_KEY` fallback behavior.
 - Mapped endpoint protections by operation type:
-	- viewer: read/query endpoints
-	- reviewer: review queue endpoints
-	- editor: ingest/governed mutations and evaluation writes
-	- admin: backup, migrations, maintenance, retention redaction, source policy updates
+  - viewer: read/query endpoints
+  - reviewer: review queue endpoints
+  - editor: ingest/governed mutations and evaluation writes
+  - admin: backup, migrations, maintenance, retention redaction, source policy updates
 - Expanded API auth tests to validate scope enforcement and no-auth legacy mode.
 - Added token-level support offsets for exact claim support spans (`support_token_start`, `support_token_end`) during extraction and persistence.
 - Expanded exact-span regression tests to verify token offsets are persisted and exposed in citations.
@@ -68,7 +80,6 @@
 - Added Postgres SQL smoke command and tests.
 - Validation: 23 tests passed, compile/import smoke checks run locally.
 
-
 ## v0.5.0 — Runtime hardening
 
 - Added storage abstraction with `SQLiteStore`, `PostgresStore`, and explicit transaction helpers.
@@ -80,7 +91,6 @@
 - Added runtime-health, migrate, ledger, governed-ingest, claim-cluster, and eval-suite CLI commands.
 - Added FastAPI endpoints for the v0.5 runtime layer.
 - Added v0.5 tests and smoke validation.
-
 
 ## v0.4.0
 

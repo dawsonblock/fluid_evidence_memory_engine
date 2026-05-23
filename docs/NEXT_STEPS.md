@@ -1,28 +1,10 @@
 # Next Steps
 
-## 1. Add real extraction model
+## 1. Integrate a production structured extractor provider
 
-Current extraction is heuristic. Replace with a strict JSON LLM adapter:
+v0.7.5 adds strict extractor semantics, provider registry wiring, and fail-closed behavior for `json_strict`.
 
-Top-level payload key may be either `claims` or `candidates`.
-
-```json
-{
-  "claims": [
-    {
-      "subject": "...",
-      "predicate": "...",
-      "object": "...",
-      "claim_text": "...",
-      "memory_type": "project_decision",
-      "confidence": 0.0,
-      "evidence_span": {"char_start": 0, "char_end": 0}
-    }
-  ]
-}
-```
-
-The adapter must never write directly. It should propose candidates, then the Memory Write Governor decides.
+Next step: plug in a production structured provider (LLM or rules engine) behind the provider registry while preserving current schema validation and audit metadata.
 
 ## 2. Add review UI
 
@@ -56,6 +38,8 @@ Test cases should cover:
 - token-budget packing efficiency
 - project isolation
 
+v0.7.5 ships extraction fixture seeds and `feme eval-extraction` for baseline extraction metrics; extend this into broader golden suites.
+
 ## 5. Strengthen PostgreSQL production readiness (post-v0.7)
 
 v0.7 establishes a verified dual-backend alpha baseline with runnable Postgres runtime paths, live Docker-backed integration tests, and CI coverage.
@@ -68,8 +52,9 @@ Post-v0.7 priority gaps to close:
 
 ## 6. Add stronger embeddings
 
-The hashing embedder is deterministic and offline, but weak. Replace with a local sentence-transformer, OpenAI embeddings, or another embedding model behind an adapter.
+v0.7.5 introduces an embedding provider interface/registry around hashing embeddings.
 
+Next step: add semantic embedding providers (local or hosted) behind that interface and validate retrieval gains before enabling by default.
 
 ## Next hardening sequence
 

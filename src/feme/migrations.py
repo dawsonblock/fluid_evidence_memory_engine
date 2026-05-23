@@ -275,10 +275,10 @@ class MigrationManager:
 
             con.execute(
                 "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
-                ("schema_version", "0.7.4", now_iso()),
+                ("schema_version", "0.7.5", now_iso()),
             )
             con.commit()
-        return {"applied": applied, "schema_version": "0.7.4"}
+        return {"applied": applied, "schema_version": "0.7.5"}
 
     @staticmethod
     def _record_migration(

@@ -385,7 +385,7 @@ def test_extract_for_evidence_persists_fallback_audit_on_error(tmp_path: Path):
         ).fetchone()
     assert audit
     assert audit["outcome"] == "heuristic_fallback"
-    assert "structured_error:RuntimeError" in audit["detail"]
+    assert "provider_error:RuntimeError" in audit["detail"]
 
 
 def test_extract_for_evidence_persists_strict_reject_audit(tmp_path: Path):

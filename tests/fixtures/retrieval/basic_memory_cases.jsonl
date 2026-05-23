@@ -1,0 +1,1 @@
+{"project_id":"p1","documents":[{"source_type":"official_record","text":"FEME must use PostgreSQL as canonical memory."}],"queries":[{"query":"canonical memory database","expected_claim_substrings":["PostgreSQL"],"expected_quote":"FEME must use PostgreSQL as canonical memory."}]}

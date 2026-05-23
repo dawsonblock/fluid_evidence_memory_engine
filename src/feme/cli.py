@@ -15,6 +15,7 @@ from .contradiction import ContradictionEngine
 from .db import Database
 from .evidence import EvidenceIngestor
 from .evaluation import RetrievalEvaluator
+from .eval import evaluate_extraction_fixture
 from .export_import import ProjectExporter
 from .lifecycle import MemoryLifecycleManager
 from .models import EvaluationCase
@@ -74,6 +75,10 @@ def ingest_text(
         None,
         help="Extractor provider label written to extraction audit",
     ),
+    extractor_schema_version: str | None = typer.Option(
+        None,
+        help="Extractor schema version (default: claim-extraction-v1)",
+    ),
     vault_root: str = typer.Option(None, help="Optional raw file vault directory"),
 ):
     settings = get_settings()
@@ -93,6 +98,8 @@ def ingest_text(
         extractor_mode = settings.extractor_mode
     if not isinstance(extractor_provider, str):
         extractor_provider = settings.extractor_provider
+    if not isinstance(extractor_schema_version, str):
+        extractor_schema_version = settings.extractor_schema_version
     database = _db(db)
     database.init()
     ingestor = EvidenceIngestor(database)
@@ -120,11 +127,15 @@ def ingest_text(
     if extract_claims:
         governor = MemoryWriteGovernor(database)
         contradiction = ContradictionEngine(database)
+        audit_warnings: list[str] = []
         candidates = extract_candidates_for_evidence(
             database,
             result["evidence_id"],
             extractor_mode=extractor_mode,
             extractor_provider=extractor_provider,
+            extractor_schema_version=extractor_schema_version,
+            require_extractor_audit=settings.require_extractor_audit,
+            audit_warnings=audit_warnings,
         )
         writes = []
         contradictions = []
@@ -141,6 +152,8 @@ def ingest_text(
         )
         if contradictions:
             print(f"[yellow]Contradictions detected:[/yellow] {len(contradictions)}")
+        if audit_warnings:
+            print(f"[yellow]Extractor audit warnings:[/yellow] {len(audit_warnings)}")
 
 
 @app.command("list-claims")
@@ -657,6 +670,10 @@ def ingest_governed(
         None,
         help="Extractor provider label written to extraction audit",
     ),
+    extractor_schema_version: str | None = typer.Option(
+        None,
+        help="Extractor schema version (default: claim-extraction-v1)",
+    ),
 ):
     settings = get_settings()
     if not isinstance(text, str):
@@ -675,6 +692,8 @@ def ingest_governed(
         extractor_mode = settings.extractor_mode
     if not isinstance(extractor_provider, str):
         extractor_provider = settings.extractor_provider
+    if not isinstance(extractor_schema_version, str):
+        extractor_schema_version = settings.extractor_schema_version
     database = _db(db)
     database.init()
     if path:
@@ -693,6 +712,7 @@ def ingest_governed(
         extract_claims=extract_claims,
         extractor_mode=extractor_mode,
         extractor_provider=extractor_provider,
+        extractor_schema_version=extractor_schema_version,
     )
     print(json.dumps(result, indent=2))
 
@@ -805,6 +825,29 @@ def eval_suite(
             indent=2,
         )
     )
+
+
+@app.command("eval-extraction")
+def eval_extraction(
+    fixture: str = typer.Option(
+        "tests/fixtures/extraction/project_decisions.jsonl",
+        help="JSONL fixture path for extraction evaluation",
+    ),
+    extractor_mode: str = typer.Option(
+        "heuristic",
+        help="Extractor mode: heuristic, json_with_fallback, or json_strict",
+    ),
+    extractor_provider: str = typer.Option(
+        None,
+        help="Optional extractor provider for structured modes",
+    ),
+):
+    result = evaluate_extraction_fixture(
+        fixture,
+        extractor_mode=extractor_mode,
+        extractor_provider=extractor_provider,
+    )
+    print(json.dumps(result, indent=2))
 
 
 @app.command("postgres-sql-smoke")

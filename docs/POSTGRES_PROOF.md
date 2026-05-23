@@ -1,4 +1,4 @@
-# PostgreSQL Proof - FEME v0.7.3
+# PostgreSQL Proof - FEME v0.7.5
 
 ## Environment
 
@@ -25,10 +25,9 @@ bash scripts/postgres-proof.sh
 
 ## Result
 
-- `SKIP_SETUP=1 bash scripts/postgres-proof.sh` (Docker-backed Postgres + DSN export) -> `10 passed in 1.86s`
-- direct equivalent `pytest -q tests/test_v07_postgres_live_integration.py` with DSN set -> `10 passed`
-- `python3.10 -m pytest -q` local default environment -> `61 passed, 10 skipped`
-- default-env suite remains skip-safe when DSN/psycopg are unavailable
+- Docker-backed Postgres integration proof command is unchanged and remains the required v0.7.5 proof path.
+- Preserve the exact raw test output in `docs/proof/postgres_v0_7_5.txt` after running the live command externally.
+- In this workspace, Postgres live proof may skip when `psycopg` and DSN are not configured.
 
 ## Proven
 
@@ -51,4 +50,6 @@ bash scripts/postgres-proof.sh
 
 ## Notes
 
-This document is a required release artifact for v0.7 dual-backend alpha packaging.
+Docker-backed Postgres integration proof passed in prior runs and remains required for v0.7.5 release evidence capture.
+
+High-concurrency/load behavior is not yet claimed production-grade and still requires expanded validation.

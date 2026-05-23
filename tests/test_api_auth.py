@@ -261,3 +261,53 @@ def test_api_role_scopes_viewer_reviewer_editor_admin(tmp_path, monkeypatch):
         )
     finally:
         api.database = original_db
+
+
+def test_api_ingest_strict_requires_structured_provider_by_default(
+    tmp_path, monkeypatch
+):
+    fastapi_testclient = pytest.importorskip("fastapi.testclient")
+
+    api = _load_api_with_roles(
+        monkeypatch,
+        tmp_path,
+        editor_key="editor-key",
+    )
+
+    db = _db(tmp_path)
+    original_db = api.database
+    api.database = db
+    try:
+        client = fastapi_testclient.TestClient(api.app)
+
+        rejected = client.post(
+            "/ingest/governed",
+            headers={"X-FEME-API-Key": "editor-key"},
+            json={
+                "text": "FEME must use PostgreSQL as canonical memory.",
+                "project_id": "auth",
+                "extractor_mode": "json_strict",
+                "extractor_provider": "missing-provider",
+            },
+        )
+        assert rejected.status_code == 400
+        assert rejected.json()["detail"] == "structured_extractor_unavailable"
+
+        evidence_only = client.post(
+            "/ingest/governed",
+            headers={"X-FEME-API-Key": "editor-key"},
+            json={
+                "text": "FEME must use PostgreSQL as canonical memory.",
+                "project_id": "auth",
+                "extractor_mode": "json_strict",
+                "extractor_provider": "missing-provider",
+                "allow_evidence_only_on_extractor_failure": True,
+            },
+        )
+        assert evidence_only.status_code == 200
+        body = evidence_only.json()
+        assert body["extractor_outcome"] == "strict_rejected"
+        assert body["reason"] == "structured_extractor_unavailable"
+        assert body["claim_writes"] == []
+    finally:
+        api.database = original_db

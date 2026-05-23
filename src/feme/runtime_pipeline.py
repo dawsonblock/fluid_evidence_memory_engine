@@ -3,6 +3,7 @@ from __future__ import annotations
 from .claim_canonicalizer import ClaimCanonicalizer
 from .claim_extractor import extract_candidates_for_evidence
 from .contradiction import ContradictionEngine
+from .config import get_settings
 from .db import Database
 from .evidence import EvidenceIngestor
 from .ledger import MemoryLedger
@@ -36,7 +37,14 @@ class TransactionalIngestionPipeline:
         rebuild_clusters: bool = True,
         extractor_mode: str = "json_with_fallback",
         extractor_provider: str | None = None,
+        extractor_schema_version: str | None = None,
     ) -> dict:
+        settings = get_settings()
+        if (
+            not isinstance(extractor_schema_version, str)
+            or not extractor_schema_version
+        ):
+            extractor_schema_version = settings.extractor_schema_version
         ProjectManager(self.db).ensure(project_id)
         run_id = new_id("run")
         now = now_iso()
@@ -96,6 +104,7 @@ class TransactionalIngestionPipeline:
 
                 writes = []
                 contradictions = []
+                audit_warnings: list[str] = []
                 if extract_claims and not ingest_result.get("duplicate"):
                     governor = MemoryWriteGovernor(self.db)
                     contradiction_engine = ContradictionEngine(self.db)
@@ -104,6 +113,9 @@ class TransactionalIngestionPipeline:
                         evidence_id,
                         extractor_mode=extractor_mode,
                         extractor_provider=extractor_provider,
+                        extractor_schema_version=extractor_schema_version,
+                        require_extractor_audit=settings.require_extractor_audit,
+                        audit_warnings=audit_warnings,
                         con=con,
                     )
                     for candidate in candidates:
@@ -175,6 +187,7 @@ class TransactionalIngestionPipeline:
                 "claim_writes": writes,
                 "contradictions": contradictions,
                 "clusters": clusters,
+                "audit_warnings": audit_warnings,
             }
         except Exception as exc:
             with self.db.connect() as con:
