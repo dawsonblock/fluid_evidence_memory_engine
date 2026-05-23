@@ -69,6 +69,11 @@ def test_retrieval_eval_suite(tmp_path: Path):
     result = suite.run()
     assert result["case_count"] == 1
     assert result["passed"] == 1
+    metrics = result["results"][0]["span_metrics"]
+    assert metrics["total_spans"] >= 1
+    assert 0.0 <= metrics["char_bounds_valid_ratio"] <= 1.0
+    assert 0.0 <= metrics["token_bounds_valid_ratio"] <= 1.0
+    assert 0.0 <= metrics["quote_hash_valid_ratio"] <= 1.0
 
 
 def test_sqlite_ledger_is_append_only(tmp_path: Path):
