@@ -1,5 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 from feme.db import Database
 from feme.evidence import EvidenceIngestor
 
@@ -70,3 +72,35 @@ def test_ingest_duplicate_parallel_writers_resolve_to_single_evidence(tmp_path):
             ("default", sha),
         ).fetchone()["n"]
     assert int(n) == 1
+
+
+def test_ingest_rolls_back_when_timeline_build_fails(tmp_path, monkeypatch):
+    db = Database(str(tmp_path / "memory.db"))
+    db.init()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("timeline failure")
+
+    monkeypatch.setattr(
+        "feme.temporal.TimelineManager.build_for_evidence",
+        _boom,
+    )
+
+    with pytest.raises(RuntimeError, match="timeline failure"):
+        EvidenceIngestor(db).ingest_text(
+            "Use PostgreSQL as canonical memory. Claims link to evidence spans.",
+        )
+
+    with db.connect() as con:
+        evidence_count = con.execute(
+            "SELECT COUNT(*) AS n FROM evidence_sources"
+        ).fetchone()["n"]
+        chunk_count = con.execute("SELECT COUNT(*) AS n FROM text_chunks").fetchone()[
+            "n"
+        ]
+        mention_count = con.execute(
+            "SELECT COUNT(*) AS n FROM entity_mentions"
+        ).fetchone()["n"]
+    assert int(evidence_count) == 0
+    assert int(chunk_count) == 0
+    assert int(mention_count) == 0

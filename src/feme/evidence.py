@@ -220,31 +220,31 @@ class EvidenceIngestor:
                     ),
                 )
 
+            if extract_entities:
+                for chunk_id, span_id, ch in zip(chunk_ids, span_ids, chunks):
+                    entity_mention_ids.extend(
+                        persist_entities_for_chunk(
+                            self.db,
+                            {
+                                "id": chunk_id,
+                                "evidence_id": evidence_id,
+                                "char_start": ch.char_start,
+                                "text": ch.text,
+                            },
+                            span_id=span_id,
+                            con=active_con,
+                            autocommit=False,
+                        )
+                    )
+
+            timeline_events = TimelineManager(self.db).build_for_evidence(
+                evidence_id,
+                con=active_con,
+                autocommit=False,
+            )
+
             if autocommit:
                 active_con.commit()
-
-        if extract_entities:
-            for chunk_id, span_id, ch in zip(chunk_ids, span_ids, chunks):
-                entity_mention_ids.extend(
-                    persist_entities_for_chunk(
-                        self.db,
-                        {
-                            "id": chunk_id,
-                            "evidence_id": evidence_id,
-                            "char_start": ch.char_start,
-                            "text": ch.text,
-                        },
-                        span_id=span_id,
-                        con=con,
-                        autocommit=autocommit,
-                    )
-                )
-
-        timeline_events = TimelineManager(self.db).build_for_evidence(
-            evidence_id,
-            con=con,
-            autocommit=autocommit,
-        )
         return {
             "evidence_id": evidence_id,
             "snapshot_id": snapshot_id,
