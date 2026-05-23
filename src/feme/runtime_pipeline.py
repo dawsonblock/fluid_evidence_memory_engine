@@ -46,7 +46,15 @@ class TransactionalIngestionPipeline:
                     (id, project_id, source_type, source_uri, status, started_at, metadata_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (run_id, project_id, source_type, source_uri, "pipeline_started", now, json_dumps({"title": title, "actor": actor})),
+                    (
+                        run_id,
+                        project_id,
+                        source_type,
+                        source_uri,
+                        "pipeline_started",
+                        now,
+                        json_dumps({"title": title, "actor": actor}),
+                    ),
                 )
                 self.ledger.append(
                     event_type="ingestion_started",
@@ -54,7 +62,11 @@ class TransactionalIngestionPipeline:
                     object_id=run_id,
                     project_id=project_id,
                     actor=actor,
-                    after={"source_type": source_type, "title": title, "source_uri": source_uri},
+                    after={
+                        "source_type": source_type,
+                        "title": title,
+                        "source_uri": source_uri,
+                    },
                     con=con,
                     autocommit=False,
                 )
@@ -85,9 +97,13 @@ class TransactionalIngestionPipeline:
                 if extract_claims and not ingest_result.get("duplicate"):
                     governor = MemoryWriteGovernor(self.db)
                     contradiction_engine = ContradictionEngine(self.db)
-                    candidates = extract_candidates_for_evidence(self.db, evidence_id, con=con)
+                    candidates = extract_candidates_for_evidence(
+                        self.db, evidence_id, con=con
+                    )
                     for candidate in candidates:
-                        write = governor.commit_candidate(candidate, project_id=project_id, con=con, autocommit=False)
+                        write = governor.commit_candidate(
+                            candidate, project_id=project_id, con=con, autocommit=False
+                        )
                         writes.append(write.model_dump())
                         if write.matched_claim_id:
                             self.ledger.append(
@@ -101,11 +117,17 @@ class TransactionalIngestionPipeline:
                                 con=con,
                                 autocommit=False,
                             )
-                            contradictions.extend(contradiction_engine.scan_new_claim(write.matched_claim_id, con=con, autocommit=False))
+                            contradictions.extend(
+                                contradiction_engine.scan_new_claim(
+                                    write.matched_claim_id, con=con, autocommit=False
+                                )
+                            )
 
                 clusters = {"clusters_created_or_updated": 0}
                 if rebuild_clusters:
-                    clusters = ClaimCanonicalizer(self.db).rebuild_clusters(project_id=project_id, con=con, autocommit=False)
+                    clusters = ClaimCanonicalizer(self.db).rebuild_clusters(
+                        project_id=project_id, con=con, autocommit=False
+                    )
                     self.ledger.append(
                         event_type="clusters_rebuilt",
                         object_type="claim_clusters",
@@ -127,7 +149,12 @@ class TransactionalIngestionPipeline:
                     object_id=run_id,
                     project_id=project_id,
                     actor=actor,
-                    after={"evidence_id": evidence_id, "write_count": len(writes), "contradiction_count": len(contradictions), **clusters},
+                    after={
+                        "evidence_id": evidence_id,
+                        "write_count": len(writes),
+                        "contradiction_count": len(contradictions),
+                        **clusters,
+                    },
                     con=con,
                     autocommit=False,
                 )
@@ -145,7 +172,9 @@ class TransactionalIngestionPipeline:
             }
         except Exception as exc:
             with self.db.connect() as con:
-                row = con.execute("SELECT id FROM ingestion_jobs WHERE id = ?", (run_id,)).fetchone()
+                row = con.execute(
+                    "SELECT id FROM ingestion_jobs WHERE id = ?", (run_id,)
+                ).fetchone()
                 if row:
                     con.execute(
                         "UPDATE ingestion_jobs SET status = ?, error = ?, finished_at = ? WHERE id = ?",
@@ -158,7 +187,17 @@ class TransactionalIngestionPipeline:
                         (id, project_id, source_type, source_uri, status, started_at, finished_at, error, metadata_json)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (run_id, project_id, source_type, source_uri, "pipeline_failed", now, now_iso(), str(exc), json_dumps({"title": title, "actor": actor})),
+                        (
+                            run_id,
+                            project_id,
+                            source_type,
+                            source_uri,
+                            "pipeline_failed",
+                            now,
+                            now_iso(),
+                            str(exc),
+                            json_dumps({"title": title, "actor": actor}),
+                        ),
                     )
                 con.commit()
             self.ledger.append(

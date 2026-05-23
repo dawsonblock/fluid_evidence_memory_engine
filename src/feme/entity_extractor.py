@@ -18,24 +18,39 @@ class EntityMentionCandidate:
 
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-DATE_RE = re.compile(r"\b(?:\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4})\b", re.I)
-ORG_RE = re.compile(r"\b[A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,4}\s+(?:Inc|Corp|Corporation|Ltd|LLC|Court|Ministry|Department|Bayshore|WCB)\b")
+DATE_RE = re.compile(
+    r"\b(?:\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4})\b",
+    re.I,
+)
+ORG_RE = re.compile(
+    r"\b[A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,4}\s+(?:Inc|Corp|Corporation|Ltd|LLC|Court|Ministry|Department|Bayshore|WCB)\b"
+)
 PERSONISH_RE = re.compile(r"\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,2}\b")
 
 
 def extract_entities(text: str) -> list[EntityMentionCandidate]:
     found: list[EntityMentionCandidate] = []
     for m in EMAIL_RE.finditer(text):
-        found.append(EntityMentionCandidate(m.group(0), "email", m.start(), m.end(), 0.95))
+        found.append(
+            EntityMentionCandidate(m.group(0), "email", m.start(), m.end(), 0.95)
+        )
     for m in DATE_RE.finditer(text):
-        found.append(EntityMentionCandidate(m.group(0), "date", m.start(), m.end(), 0.90))
+        found.append(
+            EntityMentionCandidate(m.group(0), "date", m.start(), m.end(), 0.90)
+        )
     for m in ORG_RE.finditer(text):
-        found.append(EntityMentionCandidate(m.group(0), "organization", m.start(), m.end(), 0.70))
+        found.append(
+            EntityMentionCandidate(m.group(0), "organization", m.start(), m.end(), 0.70)
+        )
     for m in PERSONISH_RE.finditer(text):
         # Avoid reclassifying likely org/date fragments when already covered.
         if any(_overlaps(m.start(), m.end(), x.char_start, x.char_end) for x in found):
             continue
-        found.append(EntityMentionCandidate(m.group(0), "person_or_title", m.start(), m.end(), 0.55))
+        found.append(
+            EntityMentionCandidate(
+                m.group(0), "person_or_title", m.start(), m.end(), 0.55
+            )
+        )
     return found
 
 

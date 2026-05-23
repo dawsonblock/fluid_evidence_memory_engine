@@ -7,15 +7,33 @@ from datetime import date
 from .db import Database, rows_to_dicts
 from .utils import json_dumps, new_id, now_iso
 
-ISO_DATE_RE = re.compile(r"\b(20\d{2}|19\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])\b")
+ISO_DATE_RE = re.compile(
+    r"\b(20\d{2}|19\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])\b"
+)
 MONTH_DATE_RE = re.compile(
     r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+([0-3]?\d),\s+(20\d{2}|19\d{2})\b",
     flags=re.IGNORECASE,
 )
-MONTHS = {m.lower(): i for i, m in enumerate(
-    ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-    start=1,
-)}
+MONTHS = {
+    m.lower(): i
+    for i, m in enumerate(
+        [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ],
+        start=1,
+    )
+}
 
 
 def extract_dates(text: str) -> list[dict]:
@@ -26,7 +44,15 @@ def extract_dates(text: str) -> list[dict]:
             iso = date(y, mo, d).isoformat()
         except ValueError:
             continue
-        out.append({"date_text": m.group(0), "event_date": iso, "char_start": m.start(), "char_end": m.end(), "precision": "day"})
+        out.append(
+            {
+                "date_text": m.group(0),
+                "event_date": iso,
+                "char_start": m.start(),
+                "char_end": m.end(),
+                "precision": "day",
+            }
+        )
     for m in MONTH_DATE_RE.finditer(text):
         mo = MONTHS[m.group(1).lower()]
         d, y = int(m.group(2)), int(m.group(3))
@@ -34,7 +60,15 @@ def extract_dates(text: str) -> list[dict]:
             iso = date(y, mo, d).isoformat()
         except ValueError:
             continue
-        out.append({"date_text": m.group(0), "event_date": iso, "char_start": m.start(), "char_end": m.end(), "precision": "day"})
+        out.append(
+            {
+                "date_text": m.group(0),
+                "event_date": iso,
+                "char_start": m.start(),
+                "char_end": m.end(),
+                "precision": "day",
+            }
+        )
     out.sort(key=lambda x: (x["char_start"], x["char_end"]))
     # de-dupe overlapping matches
     deduped: list[dict] = []
@@ -84,25 +118,53 @@ class TimelineManager:
                             description,
                             0.65,
                             now,
-                            json_dumps({"date_text": item["date_text"], "char_start": absolute_start, "char_end": absolute_end, "extractor": "temporal-v0.4"}),
+                            json_dumps(
+                                {
+                                    "date_text": item["date_text"],
+                                    "char_start": absolute_start,
+                                    "char_end": absolute_end,
+                                    "extractor": "temporal-v0.4",
+                                }
+                            ),
                             evidence_id,
                         ),
                     )
-                    created.append({"id": event_id, "event_date": item["event_date"], "description": description, "span_id": chunk["span_id"]})
+                    created.append(
+                        {
+                            "id": event_id,
+                            "event_date": item["event_date"],
+                            "description": description,
+                            "span_id": chunk["span_id"],
+                        }
+                    )
             if autocommit:
                 active_con.commit()
         return created
 
-    def rebuild_project(self, *, project_id: str = "default", clear_existing: bool = True) -> dict:
+    def rebuild_project(
+        self, *, project_id: str = "default", clear_existing: bool = True
+    ) -> dict:
         with self.db.connect() as con:
             if clear_existing:
-                con.execute("DELETE FROM timeline_events WHERE project_id = ?", (project_id,))
-            evidence_ids = [r["id"] for r in con.execute("SELECT id FROM evidence_sources WHERE project_id = ?", (project_id,)).fetchall()]
+                con.execute(
+                    "DELETE FROM timeline_events WHERE project_id = ?", (project_id,)
+                )
+            evidence_ids = [
+                r["id"]
+                for r in con.execute(
+                    "SELECT id FROM evidence_sources WHERE project_id = ?",
+                    (project_id,),
+                ).fetchall()
+            ]
             con.commit()
         count = 0
         for evidence_id in evidence_ids:
             count += len(self.build_for_evidence(evidence_id))
-        return {"project_id": project_id, "evidence_count": len(evidence_ids), "timeline_events": count}
+        return {
+            "project_id": project_id,
+            "evidence_count": len(evidence_ids),
+            "timeline_events": count,
+        }
 
     def list(self, *, project_id: str = "default", limit: int = 100) -> list[dict]:
         with self.db.connect() as con:
