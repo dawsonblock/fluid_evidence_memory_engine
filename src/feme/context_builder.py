@@ -19,7 +19,7 @@ class ContextBuilder:
         project_id: str = "default",
         token_budget: int = 12000,
         retrieval_mode: str | None = None,
-        include_pending_review: bool = True,
+        include_pending_review: bool = False,
     ) -> ContextPacket:
         mode, effective_include_pending = resolve_retrieval_mode(
             retrieval_mode,

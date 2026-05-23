@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import json
 import importlib
 
 import pytest
@@ -375,3 +375,32 @@ def test_api_and_cli_honor_pending_review_filter(tmp_path: Path, capsys, monkeyp
     )
     captured = capsys.readouterr().out
     assert "pending_review" in captured
+
+    cli.verify(
+        db=str(db.path),
+        question="What database should we use?",
+        project_id="p-filter",
+        budget=12000,
+    )
+    verify_default = json.loads(capsys.readouterr().out)
+    assert verify_default["publication_blocked"] is False
+    assert not any(
+        issue["type"].startswith("pending_review")
+        for issue in verify_default["issues"]
+    )
+
+    cli.verify(
+        db=str(db.path),
+        question="What database should we use?",
+        project_id="p-filter",
+        budget=12000,
+        retrieval_mode="internal",
+        include_pending_review=True,
+    )
+    verify_internal = json.loads(capsys.readouterr().out)
+    assert verify_internal["publication_blocked"] is True
+    assert verify_internal["ok"] is False
+    assert any(
+        issue["type"] == "pending_review_claim_in_context"
+        for issue in verify_internal["issues"]
+    )

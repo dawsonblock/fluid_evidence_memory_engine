@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from typing import Any, Union
+from typing import Any, Literal, Union
 
 from .db import Database
 from .models import ClaimCandidate, MemoryLevel, MemoryType
@@ -61,6 +61,7 @@ JsonClaimExtractor = Callable[
     [str, dict[str, Any]],
     Union[dict[str, Any], list[dict[str, Any]]],
 ]
+ExtractorMode = Literal["heuristic", "json_with_fallback", "json_strict"]
 
 
 def extract_candidates_from_chunk(
@@ -68,19 +69,27 @@ def extract_candidates_from_chunk(
     policy: MemoryPolicy | None = None,
     *,
     json_claim_extractor: JsonClaimExtractor | None = None,
+    extractor_mode: ExtractorMode = "json_with_fallback",
 ) -> list[ClaimCandidate]:
     policy = policy or MemoryPolicy.default()
     text = str(chunk.get("text") or "")
     if not text:
         return []
 
-    if json_claim_extractor is not None:
+    if extractor_mode not in {"heuristic", "json_with_fallback", "json_strict"}:
+        extractor_mode = "json_with_fallback"
+
+    if extractor_mode != "heuristic" and json_claim_extractor is not None:
         try:
             payload = json_claim_extractor(text, dict(chunk))
             structured = _structured_candidates_from_json(payload, dict(chunk), policy)
             if structured:
                 return structured
+            if extractor_mode == "json_strict":
+                return []
         except Exception:
+            if extractor_mode == "json_strict":
+                return []
             # Structured extraction is optional; fall back to deterministic heuristics.
             pass
 
@@ -112,6 +121,7 @@ def extract_candidates_for_evidence(
     evidence_id: str,
     policy: MemoryPolicy | None = None,
     json_claim_extractor: JsonClaimExtractor | None = None,
+    extractor_mode: ExtractorMode = "json_with_fallback",
     *,
     con=None,
 ) -> list[ClaimCandidate]:
@@ -151,6 +161,7 @@ def extract_candidates_for_evidence(
                 dict(row),
                 policy=policy,
                 json_claim_extractor=json_claim_extractor,
+                extractor_mode=extractor_mode,
             )
         )
     return candidates
@@ -310,6 +321,11 @@ def _read_char_span(
 ) -> tuple[int | None, int | None]:
     start_raw = entry.get("support_char_start")
     end_raw = entry.get("support_char_end")
+    if not isinstance(start_raw, int) or not isinstance(end_raw, int):
+        evidence_span = entry.get("evidence_span")
+        if isinstance(evidence_span, dict):
+            start_raw = evidence_span.get("char_start")
+            end_raw = evidence_span.get("char_end")
     if not isinstance(start_raw, int) or not isinstance(end_raw, int):
         return None, None
     if start_raw < 0 or end_raw <= start_raw or end_raw > len(chunk_text):

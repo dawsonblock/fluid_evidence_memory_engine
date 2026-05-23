@@ -51,7 +51,11 @@ def test_support_spans_are_exposed_with_exact_offsets(tmp_path):
     candidates = extract_candidates_for_evidence(db, result["evidence_id"])
     write = MemoryWriteGovernor(db).commit_candidate(candidates[0], project_id="memory")
 
-    packet = ContextBuilder(db).build("canonical memory database", project_id="memory")
+    packet = ContextBuilder(db).build(
+        "canonical memory database",
+        project_id="memory",
+        include_pending_review=True,
+    )
     claim_items = [item for item in packet.included if item.get("kind") == "claim"]
     assert claim_items
     evidence = claim_items[0]["supporting_evidence"][0]
