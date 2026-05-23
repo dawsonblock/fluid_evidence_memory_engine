@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import nullcontext
 from dataclasses import dataclass
 
 from .db import Database
@@ -38,16 +39,24 @@ def extract_entities(text: str) -> list[EntityMentionCandidate]:
     return found
 
 
-def persist_entities_for_chunk(db: Database, chunk: dict, span_id: str | None = None) -> list[str]:
+def persist_entities_for_chunk(
+    db: Database,
+    chunk: dict,
+    span_id: str | None = None,
+    *,
+    con=None,
+    autocommit: bool = True,
+) -> list[str]:
     mentions = extract_entities(chunk.get("text", ""))
     ids: list[str] = []
     if not mentions:
         return ids
     now = now_iso()
-    with db.connect() as con:
+    con_ctx = nullcontext(con) if con is not None else db.connect()
+    with con_ctx as active_con:
         for mention in mentions:
             norm = normalize_key(mention.name)
-            row = con.execute(
+            row = active_con.execute(
                 "SELECT id FROM entities WHERE normalized_name = ? AND entity_type = ?",
                 (norm, mention.entity_type),
             ).fetchone()
@@ -55,13 +64,13 @@ def persist_entities_for_chunk(db: Database, chunk: dict, span_id: str | None = 
                 entity_id = row["id"]
             else:
                 entity_id = new_id("ent")
-                con.execute(
+                active_con.execute(
                     "INSERT INTO entities (id, name, normalized_name, entity_type, created_at) VALUES (?, ?, ?, ?, ?)",
                     (entity_id, mention.name, norm, mention.entity_type, now),
                 )
             mention_id = new_id("ment")
             ids.append(mention_id)
-            con.execute(
+            active_con.execute(
                 """
                 INSERT INTO entity_mentions
                 (id, entity_id, evidence_id, chunk_id, span_id, char_start, char_end, mention_text, confidence, created_at)
@@ -80,7 +89,8 @@ def persist_entities_for_chunk(db: Database, chunk: dict, span_id: str | None = 
                     now,
                 ),
             )
-        con.commit()
+        if autocommit:
+            active_con.commit()
     return ids
 
 

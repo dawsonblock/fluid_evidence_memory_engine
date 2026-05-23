@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from contextlib import nullcontext
 
 from .db import Database
@@ -240,6 +241,14 @@ class MemoryWriteGovernor:
                         now,
                     ),
                 )
+                self._insert_support_span(
+                    active_con,
+                    claim_id=claim_id,
+                    candidate=candidate,
+                    support_type="supports",
+                    confidence=candidate.confidence,
+                    created_at=now,
+                )
             if autocommit:
                 active_con.commit()
         result.matched_claim_id = claim_id
@@ -320,8 +329,54 @@ class MemoryWriteGovernor:
                         now,
                     ),
                 )
+                self._insert_support_span(
+                    active_con,
+                    claim_id=claim_id,
+                    candidate=candidate,
+                    support_type="corroborates",
+                    confidence=candidate.confidence,
+                    created_at=now,
+                )
             if autocommit:
                 active_con.commit()
+
+    def _insert_support_span(
+        self,
+        active_con,
+        *,
+        claim_id: str,
+        candidate: ClaimCandidate,
+        support_type: str,
+        confidence: float,
+        created_at: str,
+    ) -> None:
+        if not candidate.evidence_id:
+            return
+        quote_text = candidate.support_quote_text or candidate.claim_text or ""
+        active_con.execute(
+            """
+            INSERT INTO claim_support_spans
+            (id, claim_id, evidence_id, chunk_id, span_id, support_type, confidence,
+             char_start, char_end, token_start, token_end, quote_sha256, quote_text, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                new_id("support"),
+                claim_id,
+                candidate.evidence_id,
+                candidate.chunk_id,
+                candidate.span_id,
+                support_type,
+                float(confidence),
+                candidate.support_char_start,
+                candidate.support_char_end,
+                candidate.support_token_start,
+                candidate.support_token_end,
+                hashlib.sha256(quote_text.encode("utf-8")).hexdigest(),
+                quote_text,
+                created_at,
+            ),
+        )
 
     def _supersede_claim(
         self,

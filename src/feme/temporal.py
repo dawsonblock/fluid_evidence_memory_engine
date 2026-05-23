@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import nullcontext
 from datetime import date
 
 from .db import Database, rows_to_dicts
@@ -50,11 +51,14 @@ class TimelineManager:
     def __init__(self, db: Database):
         self.db = db
 
-    def build_for_evidence(self, evidence_id: str) -> list[dict]:
+    def build_for_evidence(
+        self, evidence_id: str, *, con=None, autocommit: bool = True
+    ) -> list[dict]:
         created: list[dict] = []
         now = now_iso()
-        with self.db.connect() as con:
-            chunks = con.execute(
+        con_ctx = nullcontext(con) if con is not None else self.db.connect()
+        with con_ctx as active_con:
+            chunks = active_con.execute(
                 "SELECT tc.*, ts.id AS span_id FROM text_chunks tc LEFT JOIN token_spans ts ON ts.chunk_id = tc.id WHERE tc.evidence_id = ? ORDER BY tc.chunk_index",
                 (evidence_id,),
             ).fetchall()
@@ -64,7 +68,7 @@ class TimelineManager:
                     absolute_end = int(chunk["char_start"]) + int(item["char_end"])
                     event_id = new_id("time")
                     description = _sentence_around(chunk["text"], item["char_start"])
-                    con.execute(
+                    active_con.execute(
                         """
                         INSERT OR IGNORE INTO timeline_events
                         (id, project_id, evidence_id, claim_id, span_id, event_date, date_precision, description, confidence, created_at, metadata_json)
@@ -85,7 +89,8 @@ class TimelineManager:
                         ),
                     )
                     created.append({"id": event_id, "event_date": item["event_date"], "description": description, "span_id": chunk["span_id"]})
-            con.commit()
+            if autocommit:
+                active_con.commit()
         return created
 
     def rebuild_project(self, *, project_id: str = "default", clear_existing: bool = True) -> dict:

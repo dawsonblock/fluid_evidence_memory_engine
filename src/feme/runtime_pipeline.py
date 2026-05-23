@@ -137,6 +137,8 @@ class TransactionalIngestionPipeline:
                 "run_id": run_id,
                 "evidence_id": evidence_id,
                 "duplicate": ingest_result.get("duplicate", False),
+                "entity_mention_ids": ingest_result.get("entity_mention_ids", []),
+                "timeline_event_ids": ingest_result.get("timeline_event_ids", []),
                 "claim_writes": writes,
                 "contradictions": contradictions,
                 "clusters": clusters,

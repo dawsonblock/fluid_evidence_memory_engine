@@ -126,6 +126,23 @@ CREATE TABLE IF NOT EXISTS claim_evidence_links (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS claim_support_spans (
+    id TEXT PRIMARY KEY,
+    claim_id TEXT NOT NULL REFERENCES memory_claims(id) ON DELETE CASCADE,
+    evidence_id TEXT NOT NULL REFERENCES evidence_sources(id) ON DELETE CASCADE,
+    chunk_id TEXT REFERENCES text_chunks(id) ON DELETE SET NULL,
+    span_id TEXT REFERENCES token_spans(id) ON DELETE SET NULL,
+    support_type TEXT NOT NULL DEFAULT 'supports',
+    confidence REAL NOT NULL DEFAULT 0.5,
+    char_start INTEGER,
+    char_end INTEGER,
+    token_start INTEGER,
+    token_end INTEGER,
+    quote_sha256 TEXT,
+    quote_text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS memory_contradictions (
     id TEXT PRIMARY KEY,
     claim_a_id TEXT NOT NULL REFERENCES memory_claims(id) ON DELETE CASCADE,
@@ -185,6 +202,8 @@ CREATE INDEX IF NOT EXISTS idx_claims_project_status ON memory_claims(project_id
 CREATE INDEX IF NOT EXISTS idx_claims_subject_predicate ON memory_claims(subject, predicate);
 CREATE INDEX IF NOT EXISTS idx_chunks_evidence ON text_chunks(evidence_id);
 CREATE INDEX IF NOT EXISTS idx_links_claim ON claim_evidence_links(claim_id);
+CREATE INDEX IF NOT EXISTS idx_support_spans_claim ON claim_support_spans(claim_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_support_spans_evidence ON claim_support_spans(evidence_id);
 CREATE INDEX IF NOT EXISTS idx_entities_norm ON entities(normalized_name, entity_type);
 CREATE INDEX IF NOT EXISTS idx_mentions_entity ON entity_mentions(entity_id);
 CREATE INDEX IF NOT EXISTS idx_lifecycle_claim ON lifecycle_events(claim_id);

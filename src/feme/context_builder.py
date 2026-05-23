@@ -89,6 +89,35 @@ class ContextBuilder:
 
     def _supporting_evidence(self, claim_id: str) -> list[dict]:
         with self.db.connect() as con:
+            exact_rows = con.execute(
+                """
+                SELECT s.id AS support_span_id,
+                       s.claim_id,
+                       s.evidence_id,
+                       s.chunk_id,
+                       s.span_id,
+                       s.support_type,
+                       s.confidence,
+                       s.char_start,
+                       s.char_end,
+                       s.token_start,
+                       s.token_end,
+                       s.quote_sha256,
+                       s.quote_text,
+                       e.title,
+                       e.source_type,
+                       e.source_uri,
+                       e.sha256
+                FROM claim_support_spans s
+                JOIN evidence_sources e ON e.id = s.evidence_id
+                WHERE s.claim_id = ?
+                ORDER BY s.created_at DESC
+                """,
+                (claim_id,),
+            ).fetchall()
+            if exact_rows:
+                return [dict(row) for row in exact_rows]
+
             rows = con.execute(
                 """
                 SELECT l.*, e.title, e.source_type, e.source_uri, e.sha256, s.text AS span_text,

@@ -107,7 +107,7 @@ def test_postgres_governed_ingest_retrieve_and_ledger_verify(
 def test_postgres_init_and_migrate(postgres_db):
     migration = MigrationManager(postgres_db).apply_all()
     assert isinstance(migration["applied"], list)
-    assert migration["schema_version"] in {"0.5.0", "0.6.0", "0.7.0"}
+    assert migration["schema_version"] in {"0.5.0", "0.6.0", "0.7.0", "0.7.1"}
 
 
 def test_postgres_export_import_redaction_and_integrity(

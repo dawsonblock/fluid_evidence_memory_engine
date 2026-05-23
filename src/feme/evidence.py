@@ -223,9 +223,7 @@ class EvidenceIngestor:
             if autocommit:
                 active_con.commit()
 
-        # In caller-managed transaction mode, keep writes inside that transaction.
-        # Entity/timeline side pipelines still use independent connections.
-        if extract_entities and not (con is not None and not autocommit):
+        if extract_entities:
             for chunk_id, span_id, ch in zip(chunk_ids, span_ids, chunks):
                 entity_mention_ids.extend(
                     persist_entities_for_chunk(
@@ -237,12 +235,16 @@ class EvidenceIngestor:
                             "text": ch.text,
                         },
                         span_id=span_id,
+                        con=con,
+                        autocommit=autocommit,
                     )
                 )
 
-        timeline_events = []
-        if not (con is not None and not autocommit):
-            timeline_events = TimelineManager(self.db).build_for_evidence(evidence_id)
+        timeline_events = TimelineManager(self.db).build_for_evidence(
+            evidence_id,
+            con=con,
+            autocommit=autocommit,
+        )
         return {
             "evidence_id": evidence_id,
             "snapshot_id": snapshot_id,

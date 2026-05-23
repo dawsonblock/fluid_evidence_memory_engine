@@ -19,7 +19,7 @@ def _db(tmp_path: Path) -> Database:
 
 def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
     db = _db(tmp_path)
-    assert db.schema_version() in {"0.5.0", "0.6.0", "0.7.0"}
+    assert db.schema_version() in {"0.5.0", "0.6.0", "0.7.0", "0.7.1"}
     health = runtime_health(db)
     assert health["health"]["ok"] is True
     store = SQLiteStore(db)
@@ -36,7 +36,7 @@ def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
 def test_governed_ingestion_writes_ledger_and_clusters(tmp_path: Path):
     db = _db(tmp_path)
     result = TransactionalIngestionPipeline(db).ingest_text(
-        "Memory system should use PostgreSQL. Memory system should link claims to spans. The review happened on March 4, 2024.",
+        "Memory system should use PostgreSQL. Memory system should link claims to spans. Contact owner@example.com for audit details. The review happened on March 4, 2024.",
         source_type="official_record",
         title="runtime sample",
         actor="test",
@@ -49,6 +49,8 @@ def test_governed_ingestion_writes_ledger_and_clusters(tmp_path: Path):
     assert ledger.verify_chain()["ok"] is True
     clusters = ClaimCanonicalizer(db).list_clusters()
     assert clusters
+    assert result.get("entity_mention_ids")
+    assert result.get("timeline_event_ids")
 
 
 def test_retrieval_eval_suite(tmp_path: Path):

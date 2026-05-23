@@ -110,6 +110,11 @@ class ClaimCandidate(BaseModel):
     evidence_id: str | None = None
     chunk_id: str | None = None
     span_id: str | None = None
+    support_char_start: int | None = None
+    support_char_end: int | None = None
+    support_token_start: int | None = None
+    support_token_end: int | None = None
+    support_quote_text: str | None = None
     valid_from: str | None = None
     valid_to: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

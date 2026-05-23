@@ -77,7 +77,7 @@ class CitationManager:
         return rows_to_dicts(rows)
 
     def _citation_from_link(self, link: dict, *, claim_id: str | None, text: str | None) -> dict:
-        quote = link.get("span_text") or text or ""
+        quote = link.get("quote_text") or link.get("span_text") or text or ""
         return {
             "evidence_id": link.get("evidence_id"),
             "claim_id": claim_id,

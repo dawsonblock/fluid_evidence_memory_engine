@@ -104,6 +104,28 @@ V09_EVIDENCE_DEDUP_INDEX_SQL = """
 CREATE UNIQUE INDEX IF NOT EXISTS idx_evidence_project_sha_unique ON evidence_sources(project_id, sha256);
 """
 
+V10_CLAIM_SUPPORT_SPANS_SQL = """
+CREATE TABLE IF NOT EXISTS claim_support_spans (
+    id TEXT PRIMARY KEY,
+    claim_id TEXT NOT NULL REFERENCES memory_claims(id) ON DELETE CASCADE,
+    evidence_id TEXT NOT NULL REFERENCES evidence_sources(id) ON DELETE CASCADE,
+    chunk_id TEXT REFERENCES text_chunks(id) ON DELETE SET NULL,
+    span_id TEXT REFERENCES token_spans(id) ON DELETE SET NULL,
+    support_type TEXT NOT NULL DEFAULT 'supports',
+    confidence REAL NOT NULL DEFAULT 0.5,
+    char_start INTEGER,
+    char_end INTEGER,
+    token_start INTEGER,
+    token_end INTEGER,
+    quote_sha256 TEXT,
+    quote_text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_spans_claim ON claim_support_spans(claim_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_support_spans_evidence ON claim_support_spans(evidence_id);
+"""
+
 
 class MigrationManager:
     def __init__(self, db: Database):
@@ -155,12 +177,23 @@ class MigrationManager:
                     applied=applied,
                 )
 
+            if self._try_executescript(con, V10_CLAIM_SUPPORT_SPANS_SQL):
+                self._record_migration(
+                    con,
+                    migration_id="010_claim_support_spans",
+                    name="v0.7.1 claim support spans",
+                    checksum=hashlib.sha256(
+                        V10_CLAIM_SUPPORT_SPANS_SQL.encode("utf-8")
+                    ).hexdigest(),
+                    applied=applied,
+                )
+
             con.execute(
                 "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
-                ("schema_version", "0.7.0", now_iso()),
+                ("schema_version", "0.7.1", now_iso()),
             )
             con.commit()
-        return {"applied": applied, "schema_version": "0.7.0"}
+        return {"applied": applied, "schema_version": "0.7.1"}
 
     @staticmethod
     def _record_migration(

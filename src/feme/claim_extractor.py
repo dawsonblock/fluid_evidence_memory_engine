@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import re
+
 from .db import Database
 from .models import ClaimCandidate, MemoryLevel, MemoryType
 from .policy import MemoryPolicy
-from .utils import normalize_space
 
 EXPLICIT_MARKERS = [
     "remember",
@@ -59,13 +59,19 @@ def extract_candidates_from_chunk(
     chunk: dict, policy: MemoryPolicy | None = None
 ) -> list[ClaimCandidate]:
     policy = policy or MemoryPolicy.default()
-    text = normalize_space(chunk["text"])
+    text = str(chunk.get("text") or "")
     if not text:
         return []
-    sentences = _sentences(text)
+    sentences = _sentence_spans(text)
     out: list[ClaimCandidate] = []
-    for sentence in sentences:
-        candidate = _sentence_to_candidate(sentence, chunk, policy)
+    for sentence, char_start, char_end in sentences:
+        candidate = _sentence_to_candidate(
+            sentence,
+            chunk,
+            policy,
+            support_char_start=char_start,
+            support_char_end=char_end,
+        )
         if candidate:
             out.append(candidate)
     return out
@@ -113,13 +119,37 @@ def extract_candidates_for_evidence(
     return candidates
 
 
-def _sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
-    return [p.strip() for p in parts if len(p.strip()) >= 12]
+def _sentence_spans(text: str) -> list[tuple[str, int, int]]:
+    spans: list[tuple[str, int, int]] = []
+    start = 0
+    for match in re.finditer(r"(?<=[.!?])\s+|\n+", text):
+        end = match.start()
+        sentence = text[start:end].strip()
+        if len(sentence) >= 12:
+            left_trimmed = len(text[start:end]) - len(text[start:end].lstrip())
+            right_trimmed = len(text[start:end].rstrip())
+            absolute_start = start + left_trimmed
+            absolute_end = start + right_trimmed
+            spans.append((sentence, absolute_start, absolute_end))
+        start = match.end()
+    tail = text[start:]
+    sentence = tail.strip()
+    if len(sentence) >= 12:
+        left_trimmed = len(tail) - len(tail.lstrip())
+        right_trimmed = len(tail.rstrip())
+        absolute_start = start + left_trimmed
+        absolute_end = start + right_trimmed
+        spans.append((sentence, absolute_start, absolute_end))
+    return spans
 
 
 def _sentence_to_candidate(
-    sentence: str, chunk: dict, policy: MemoryPolicy
+    sentence: str,
+    chunk: dict,
+    policy: MemoryPolicy,
+    *,
+    support_char_start: int | None = None,
+    support_char_end: int | None = None,
 ) -> ClaimCandidate | None:
     lowered = sentence.lower()
     explicitness = 1.0 if any(m in lowered for m in EXPLICIT_MARKERS) else 0.2
@@ -170,6 +200,15 @@ def _sentence_to_candidate(
 
     source_quality = float(chunk.get("source_quality", 0.5))
     privacy_sensitivity = policy.privacy_sensitivity_for_text(sentence)
+    chunk_char_start = int(chunk.get("char_start") or 0)
+    support_char_start_abs = (
+        chunk_char_start + support_char_start
+        if support_char_start is not None
+        else None
+    )
+    support_char_end_abs = (
+        chunk_char_start + support_char_end if support_char_end is not None else None
+    )
 
     return ClaimCandidate(
         subject=subject[:240],
@@ -204,11 +243,17 @@ def _sentence_to_candidate(
         evidence_id=chunk.get("evidence_id"),
         chunk_id=chunk.get("id"),
         span_id=chunk.get("span_id"),
+        support_char_start=support_char_start_abs,
+        support_char_end=support_char_end_abs,
+        support_quote_text=sentence,
         metadata={
             "extractor": "heuristic-v2",
             "chunk_index": chunk.get("chunk_index"),
             "source_type": chunk.get("source_type"),
             "source_review_required": bool(chunk.get("review_required", 0)),
+            "support_char_start": support_char_start_abs,
+            "support_char_end": support_char_end_abs,
+            "support_quote_text": sentence,
         },
     )
 
