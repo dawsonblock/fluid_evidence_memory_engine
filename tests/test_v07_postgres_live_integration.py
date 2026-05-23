@@ -13,9 +13,10 @@ from feme.maintenance import MaintenanceManager
 from feme.migrations import MigrationManager
 from feme.retention import RetentionManager
 from feme.retrieval import RetrievalPlanner
-from feme.runtime import make_database
+from feme.runtime import make_database, runtime_health
 from feme.runtime_pipeline import TransactionalIngestionPipeline
 from feme.evidence import EvidenceIngestor
+from feme.source_registry import SourceRegistry
 
 
 def _live_postgres_dsn() -> str:
@@ -103,6 +104,12 @@ def test_postgres_governed_ingest_retrieve_and_ledger_verify(
     assert verify["ok"] is True
 
 
+def test_postgres_init_and_migrate(postgres_db):
+    migration = MigrationManager(postgres_db).apply_all()
+    assert isinstance(migration["applied"], list)
+    assert migration["schema_version"] in {"0.5.0", "0.6.0", "0.7.0"}
+
+
 def test_postgres_export_import_redaction_and_integrity(
     postgres_db, project_id: str, tmp_path
 ):
@@ -139,6 +146,7 @@ def test_postgres_export_import_redaction_and_integrity(
 
 
 def test_postgres_api_smoke(postgres_db, project_id: str):
+    pytest.importorskip("httpx")
     fastapi_testclient = pytest.importorskip("fastapi.testclient")
     from feme import api
 
@@ -219,6 +227,14 @@ def test_postgres_ledger_is_append_only(postgres_db, project_id: str):
             )
             con.commit()
 
+    with pytest.raises(Exception):
+        with postgres_db.connect() as con:
+            con.execute(
+                "DELETE FROM memory_ledger WHERE id = ?",
+                (item["id"],),
+            )
+            con.commit()
+
 
 def test_postgres_duplicate_evidence_parallel_writers(postgres_db, project_id: str):
     text = "Parallel Postgres writers should collapse duplicate evidence rows."
@@ -249,3 +265,48 @@ def test_postgres_duplicate_evidence_parallel_writers(postgres_db, project_id: s
             (project_id, row["sha256"]),
         ).fetchone()["n"]
     assert int(n) == 1
+
+
+def test_postgres_source_registry_review_required(postgres_db, project_id: str):
+    registry = SourceRegistry(postgres_db)
+    registry.upsert(
+        "user_note",
+        project_id=project_id,
+        enabled=True,
+        review_required=True,
+        default_quality=0.45,
+    )
+
+    ingest = EvidenceIngestor(postgres_db).ingest_text(
+        "User note should require review for downstream governance.",
+        source_type="user_note",
+        project_id=project_id,
+    )
+    assert ingest["source_review_required"] is True
+
+    rule = registry.assert_enabled("user_note", project_id=project_id)
+    assert bool(rule["review_required"]) is True
+
+
+def test_postgres_native_fts_path(postgres_db, project_id: str):
+    TransactionalIngestionPipeline(postgres_db).ingest_text(
+        "FEME uses PostgreSQL for canonical memory retrieval in live runtime tests.",
+        source_type="official_record",
+        title="fts proof",
+        project_id=project_id,
+        actor="pytest",
+    )
+    results = RetrievalPlanner(postgres_db).search(
+        "canonical memory",
+        project_id=project_id,
+        top_k=5,
+    )
+    assert results
+    assert any(r.metadata.get("backend") == "postgres" for r in results)
+    assert any(r.metadata.get("search_mode") == "postgres_fts" for r in results)
+
+
+def test_runtime_health_reports_postgres_backend(postgres_db):
+    health = runtime_health(postgres_db)
+    assert health["health"]["backend"] == "postgres"
+    assert health["health"]["ok"] is True

@@ -1,14 +1,13 @@
 # Changelog
 
-## v0.7.0 - PostgreSQL Proof and Runtime Hygiene
+## v0.7.0 - PostgreSQL Proof + Runtime Hygiene
 
-- Fixed PostgreSQL SQL script splitting for PL/pgSQL dollar-quoted function bodies.
-- Fixed source registry default insertion counting to use backend-neutral cursor rowcount semantics.
-- Added regression tests for:
-	- PL/pgSQL migration splitting (`V08_POSTGRES_LEDGER_IMMUTABLE_SQL` split behavior)
-	- source registry idempotent default insertion behavior.
-- Updated package/runtime schema version markers to `0.7.0`.
-- Validation baseline updated to current suite status: `30 passed, 6 skipped` (skips are live Postgres tests when psycopg/DSN is unavailable).
+- Fixed PostgreSQL dollar-quoted migration execution with robust SQL script splitting.
+- Fixed source registry insertion counting with backend-neutral cursor rowcount semantics.
+- Added live Postgres proof tests for migration/init, ingest, retrieval, ledger verification, append-only enforcement, dedup, source registry, native FTS path, and runtime health reporting.
+- Added explicit PostgreSQL backup safety behavior (no silent SQLite backup path).
+- Added release hygiene cleanup guidance and cache/artifact exclusions.
+- Updated package/runtime/docs status to reflect verified dual-backend alpha behavior.
 
 ## v0.6.0 - PostgreSQL Runtime Backend
 

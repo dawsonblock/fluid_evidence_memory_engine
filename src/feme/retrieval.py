@@ -25,17 +25,37 @@ class RetrievalPlanner:
         top_k: int = 10,
         include_statuses: tuple[str, ...] = ("active", "pending_review", "disputed"),
     ) -> list[RetrievalResult]:
-        claim_results = self._search_claims(query, project_id=project_id, top_k=top_k * 2, include_statuses=include_statuses)
-        chunk_results = self._search_chunks(query, project_id=project_id, top_k=top_k * 2)
-        merged_raw = _dedupe_results(sorted(claim_results + chunk_results, key=lambda r: r.score, reverse=True))
+        claim_results = self._search_claims(
+            query,
+            project_id=project_id,
+            top_k=top_k * 2,
+            include_statuses=include_statuses,
+        )
+        chunk_results = self._search_chunks(
+            query, project_id=project_id, top_k=top_k * 2
+        )
+        merged_raw = _dedupe_results(
+            sorted(claim_results + chunk_results, key=lambda r: r.score, reverse=True)
+        )
         merged = diversify_results(query, merged_raw, top_k=top_k)
-        self._audit(query, merged, project_id=project_id, include_statuses=include_statuses)
+        self._audit(
+            query, merged, project_id=project_id, include_statuses=include_statuses
+        )
         self._touch_claims([r.claim_id for r in merged if r.claim_id])
         return merged
 
-    def _search_claims(self, query: str, *, project_id: str, top_k: int, include_statuses: tuple[str, ...]) -> list[RetrievalResult]:
+    def _search_claims(
+        self,
+        query: str,
+        *,
+        project_id: str,
+        top_k: int,
+        include_statuses: tuple[str, ...],
+    ) -> list[RetrievalResult]:
         qvec = self.embedder.embed(query)
         placeholders = ",".join("?" for _ in include_statuses)
+        backend = "postgres" if _is_postgres(self.db) else "sqlite"
+        search_mode = "lexical_fallback"
         with self.db.connect() as con:
             fts_rows = []
             if _is_postgres(self.db):
@@ -52,6 +72,7 @@ class RetrievalPlanner:
                         """,
                         (query, project_id, *include_statuses, query, top_k),
                     ).fetchall()
+                    search_mode = "postgres_fts"
                 except Exception:
                     fts_rows = []
             else:
@@ -66,6 +87,7 @@ class RetrievalPlanner:
                         """,
                         (_fts_query(query), project_id, top_k),
                     ).fetchall()
+                    search_mode = "sqlite_fts"
                 except Exception:
                     fts_rows = []
             all_rows = con.execute(
@@ -79,26 +101,50 @@ class RetrievalPlanner:
                 (project_id, *include_statuses),
             ).fetchall()
             contradictions = {
-                row["claim_a_id"] for row in con.execute("SELECT claim_a_id FROM memory_contradictions WHERE status = 'unresolved'")
+                row["claim_a_id"]
+                for row in con.execute(
+                    "SELECT claim_a_id FROM memory_contradictions WHERE status = 'unresolved'"
+                )
             } | {
-                row["claim_b_id"] for row in con.execute("SELECT claim_b_id FROM memory_contradictions WHERE status = 'unresolved'")
+                row["claim_b_id"]
+                for row in con.execute(
+                    "SELECT claim_b_id FROM memory_contradictions WHERE status = 'unresolved'"
+                )
             }
             support_counts = {
                 row["claim_id"]: row["n"]
-                for row in con.execute("SELECT claim_id, COUNT(*) AS n FROM claim_evidence_links GROUP BY claim_id")
+                for row in con.execute(
+                    "SELECT claim_id, COUNT(*) AS n FROM claim_evidence_links GROUP BY claim_id"
+                )
             }
         if _is_postgres(self.db):
-            keyword_ids = {r["id"]: max(0.0, min(1.0, float(r["pg_rank"]))) for r in fts_rows}
+            keyword_ids = {
+                r["id"]: max(0.0, min(1.0, float(r["pg_rank"]))) for r in fts_rows
+            }
         else:
-            keyword_ids = {r["id"]: max(0.0, 1.0 / (1.0 + abs(float(r["bm25_score"])))) for r in fts_rows}
+            keyword_ids = {
+                r["id"]: max(0.0, 1.0 / (1.0 + abs(float(r["bm25_score"]))))
+                for r in fts_rows
+            }
         out: list[RetrievalResult] = []
         for row in all_rows:
-            vec = _parse_vector(row.get("vector_json") if isinstance(row, dict) else row["vector_json"])
+            vec = _parse_vector(
+                row.get("vector_json") if isinstance(row, dict) else row["vector_json"]
+            )
             sem = cosine(qvec, vec)
-            kw = max(keyword_ids.get(row["id"], 0.0), _lexical_score(query, row["claim_text"]))
+            kw = max(
+                keyword_ids.get(row["id"], 0.0),
+                _lexical_score(query, row["claim_text"]),
+            )
             contradiction_penalty = 0.20 if row["id"] in contradictions else 0.0
-            stale_penalty = 0.20 if row["status"] in {"stale", "superseded", "archived", "rejected"} else 0.0
-            unsupported_penalty = 0.12 if int(support_counts.get(row["id"], 0)) == 0 else 0.0
+            stale_penalty = (
+                0.20
+                if row["status"] in {"stale", "superseded", "archived", "rejected"}
+                else 0.0
+            )
+            unsupported_penalty = (
+                0.12 if int(support_counts.get(row["id"], 0)) == 0 else 0.0
+            )
             score = retrieval_score(
                 semantic_similarity=sem,
                 keyword_score=kw,
@@ -129,13 +175,19 @@ class RetrievalPlanner:
                             "confidence": row["confidence"],
                             "source_quality": row["source_quality"],
                             "support_count": support_counts.get(row["id"], 0),
+                            "backend": backend,
+                            "search_mode": search_mode,
                         },
                     )
                 )
         return sorted(out, key=lambda r: r.score, reverse=True)[:top_k]
 
-    def _search_chunks(self, query: str, *, project_id: str, top_k: int) -> list[RetrievalResult]:
+    def _search_chunks(
+        self, query: str, *, project_id: str, top_k: int
+    ) -> list[RetrievalResult]:
         qvec = self.embedder.embed(query)
+        backend = "postgres" if _is_postgres(self.db) else "sqlite"
+        search_mode = "lexical_fallback"
         with self.db.connect() as con:
             fts_rows = []
             if _is_postgres(self.db):
@@ -152,6 +204,7 @@ class RetrievalPlanner:
                         """,
                         (query, project_id, query, top_k),
                     ).fetchall()
+                    search_mode = "postgres_fts"
                 except Exception:
                     fts_rows = []
             else:
@@ -167,6 +220,7 @@ class RetrievalPlanner:
                         """,
                         (_fts_query(query), project_id, top_k),
                     ).fetchall()
+                    search_mode = "sqlite_fts"
                 except Exception:
                     fts_rows = []
             all_rows = con.execute(
@@ -181,14 +235,23 @@ class RetrievalPlanner:
                 (project_id,),
             ).fetchall()
         if _is_postgres(self.db):
-            keyword_ids = {r["id"]: max(0.0, min(1.0, float(r["pg_rank"]))) for r in fts_rows}
+            keyword_ids = {
+                r["id"]: max(0.0, min(1.0, float(r["pg_rank"]))) for r in fts_rows
+            }
         else:
-            keyword_ids = {r["id"]: max(0.0, 1.0 / (1.0 + abs(float(r["bm25_score"])))) for r in fts_rows}
+            keyword_ids = {
+                r["id"]: max(0.0, 1.0 / (1.0 + abs(float(r["bm25_score"]))))
+                for r in fts_rows
+            }
         out: list[RetrievalResult] = []
         for row in all_rows:
-            vec = _parse_vector(row.get("vector_json") if isinstance(row, dict) else row["vector_json"])
+            vec = _parse_vector(
+                row.get("vector_json") if isinstance(row, dict) else row["vector_json"]
+            )
             sem = cosine(qvec, vec)
-            kw = max(keyword_ids.get(row["id"], 0.0), _lexical_score(query, row["text"]))
+            kw = max(
+                keyword_ids.get(row["id"], 0.0), _lexical_score(query, row["text"])
+            )
             score = retrieval_score(
                 semantic_similarity=sem,
                 keyword_score=kw,
@@ -214,6 +277,8 @@ class RetrievalPlanner:
                             "source_quality": row["source_quality"],
                             "source_type": row["source_type"],
                             "title": row["title"],
+                            "backend": backend,
+                            "search_mode": search_mode,
                         },
                     )
                 )
@@ -221,19 +286,32 @@ class RetrievalPlanner:
 
     def _span_ids_for_claim(self, claim_id: str) -> list[str]:
         with self.db.connect() as con:
-            rows = con.execute("SELECT span_id FROM claim_evidence_links WHERE claim_id = ? AND span_id IS NOT NULL", (claim_id,)).fetchall()
+            rows = con.execute(
+                "SELECT span_id FROM claim_evidence_links WHERE claim_id = ? AND span_id IS NOT NULL",
+                (claim_id,),
+            ).fetchall()
         return [r["span_id"] for r in rows]
 
     def _span_ids_for_chunk(self, chunk_id: str) -> list[str]:
         with self.db.connect() as con:
-            rows = con.execute("SELECT id FROM token_spans WHERE chunk_id = ?", (chunk_id,)).fetchall()
+            rows = con.execute(
+                "SELECT id FROM token_spans WHERE chunk_id = ?", (chunk_id,)
+            ).fetchall()
         return [r["id"] for r in rows]
 
-    def _audit(self, query: str, results: list[RetrievalResult], **filters: object) -> None:
+    def _audit(
+        self, query: str, results: list[RetrievalResult], **filters: object
+    ) -> None:
         with self.db.connect() as con:
             con.execute(
                 "INSERT INTO retrieval_events (id, query, filters_json, selected_json, created_at) VALUES (?, ?, ?, ?, ?)",
-                (new_id("ret"), query, json_dumps(filters), json_dumps([r.model_dump() for r in results]), now_iso()),
+                (
+                    new_id("ret"),
+                    query,
+                    json_dumps(filters),
+                    json_dumps([r.model_dump() for r in results]),
+                    now_iso(),
+                ),
             )
             con.commit()
 

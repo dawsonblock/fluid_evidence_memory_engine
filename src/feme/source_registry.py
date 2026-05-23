@@ -18,6 +18,17 @@ DEFAULT_SOURCE_QUALITIES = {
 }
 
 
+def _changed_rows(cursor) -> int:
+    rowcount = getattr(cursor, "rowcount", None)
+    if rowcount is None:
+        return 0
+    try:
+        value = int(rowcount)
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
+
+
 class SourceRegistry:
     """Project-scoped source allowlist/quality registry.
 
@@ -54,7 +65,7 @@ class SourceRegistry:
                         "{}",
                     ),
                 )
-                if int(getattr(cur, "rowcount", 0) or 0) > 0:
+                if _changed_rows(cur) > 0:
                     inserted += 1
             if autocommit:
                 active_con.commit()

@@ -14,6 +14,7 @@ venv/
 
 # Local environment/config
 .env
+.env.*
 
 # Local database/runtime artifacts
 *.sqlite
@@ -23,6 +24,11 @@ venv/
 # Coverage artifacts
 .coverage
 htmlcov/
+
+# Build and packaging artifacts
+dist/
+build/
+*.egg-info/
 
 # OS/editor noise
 .DS_Store

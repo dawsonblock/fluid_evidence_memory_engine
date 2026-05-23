@@ -59,9 +59,12 @@ src/fluid_evidence_memory_engine.egg-info/dependency_links.txt
 src/fluid_evidence_memory_engine.egg-info/entry_points.txt
 src/fluid_evidence_memory_engine.egg-info/requires.txt
 src/fluid_evidence_memory_engine.egg-info/top_level.txt
+tests/test_backup_manager.py
 tests/test_contradiction.py
 tests/test_ingest.py
+tests/test_postgres_sql_splitter.py
 tests/test_retrieval.py
+tests/test_source_registry_backend_neutral.py
 tests/test_v02_upgrade.py
 tests/test_v03_upgrade.py
 tests/test_v04_upgrade.py

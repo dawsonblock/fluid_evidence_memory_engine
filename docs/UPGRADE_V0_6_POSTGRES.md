@@ -43,3 +43,14 @@ feme postgres-sql-smoke
 ## Remaining hardening
 
 The Postgres backend is now a real runtime path, but it still needs live database CI, native Postgres FTS/ranking, and concurrency/load testing before it should be described as production-grade.
+
+## v0.7 follow-up status
+
+v0.7 adds proof and runtime hygiene on top of this upgrade:
+
+- live Docker-backed Postgres integration tests in CI
+- robust PL/pgSQL dollar-quoted migration splitting
+- append-only ledger mutation blocking validated on Postgres
+- backend-neutral source registry insertion counting
+
+FEME should now be described as a verified dual-backend alpha (SQLite + PostgreSQL live-tested), not production-ready.

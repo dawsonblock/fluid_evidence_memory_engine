@@ -64,6 +64,15 @@ flowchart TD
 
 ### 1) Install
 
+Recommended one-command setup:
+
+```bash
+bash scripts/dev-setup.sh
+source .venv/bin/activate
+```
+
+Manual setup:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -140,6 +149,12 @@ Run live PostgreSQL integration tests (skips when DSN is unset):
 ```bash
 export FEME_TEST_POSTGRES_DSN=postgresql://feme:feme_dev_password@localhost:5432/feme
 pytest -q tests/test_v07_postgres_live_integration.py
+```
+
+One-command Docker + live-proof run:
+
+```bash
+bash scripts/postgres-proof.sh
 ```
 
 Run live PostgreSQL tests through Docker Compose:
@@ -304,13 +319,13 @@ Implemented:
 - Shared transaction wiring for governed ingest path
 - Ledger append serialization and append-only protections
 - Duplicate evidence collision hardening with concurrency test coverage
-- Live PostgreSQL integration test suite and CI wiring
+- Live PostgreSQL integration test suite and CI wiring (dual-backend alpha proof)
 
 Still evolving:
 
 - Broader adapter abstraction adoption across remaining modules
 - Deeper authz and multi-tenant isolation controls
-- Stronger production backup/restore runbooks
+- Stronger production backup/restore automation (v0.7 documents explicit pg_dump/export workflow)
 - Higher-fidelity extraction and embedding backends
 
 ---
@@ -327,6 +342,7 @@ Still evolving:
 ## Documentation
 
 - docs/ARCHITECTURE.md
+- docs/BACKUP_RESTORE.md
 - docs/NEXT_STEPS.md
 - docs/POSTGRES_PROOF.md
 - docs/UPGRADE_V0_6_POSTGRES.md

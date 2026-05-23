@@ -1,78 +1,53 @@
-# PostgreSQL Proof (v0.7)
+# PostgreSQL Proof - FEME v0.7.0
 
-This document records reproducible commands and outcomes for PostgreSQL runtime verification.
+## Environment
 
-## Scope
+- Python: 3.11 (CI), 3.10+ supported
+- PostgreSQL: 16
+- psycopg: 3.1+
+- OS: macOS/Linux (Docker-backed proof)
 
-The v0.7 hardening objective is to prove that PostgreSQL runtime behavior is not only present in code, but executable and regression-tested.
-
-## Preconditions
-
-- Python environment includes postgres extra:
-
-```bash
-pip install -e '.[dev,api,postgres]'
-```
-
-- PostgreSQL service is available (local Docker profile):
+## Commands
 
 ```bash
 docker compose --profile postgres up -d postgres
-```
-
-- DSN variables are set:
-
-```bash
 export FEME_DB_BACKEND=postgres
-export FEME_POSTGRES_DSN=postgresql://feme:feme_dev_password@localhost:5432/feme
-export FEME_TEST_POSTGRES_DSN=postgresql://feme:feme_dev_password@localhost:5432/feme
-```
-
-## Required verification commands
-
-1. Targeted regression checks:
-
-```bash
-pytest -q tests/test_v06_postgres.py tests/test_v04_upgrade.py
-```
-
-2. Live PostgreSQL integration suite:
-
-```bash
+export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
 pytest -q tests/test_v07_postgres_live_integration.py
 ```
 
-3. Full test suite:
+Equivalent one-command helper:
 
 ```bash
-pytest -q
+bash scripts/postgres-proof.sh
 ```
 
-4. CLI smoke against PostgreSQL:
+## Result
 
-```bash
-feme init
-feme runtime-health
-feme ingest-governed --text "Use PostgreSQL as canonical memory." --source-type official_record --actor operator
-feme search "canonical memory"
-feme ledger-verify
-```
+- `python3.10 -m pytest -q tests/test_v07_postgres_live_integration.py` with Docker Postgres + DSN set -> `10 passed`
+- `python3.10 -m pytest -q` with Postgres env enabled -> `48 passed`
+- default-env suite remains skip-safe when DSN/psycopg are unavailable
 
-## Expected outcomes
+## Proven
 
-- No migration errors when applying V07/V08/V09 SQL.
-- Ledger append-only trigger is installed and rejects update/delete mutations.
-- Governed ingest succeeds in PostgreSQL mode.
-- Retrieval returns grounded claim/chunk results.
-- Full suite passes with no unexpected skips.
+- migrations execute on live Postgres
+- PL/pgSQL ledger trigger is installed
+- governed ingest works
+- retrieval works
+- ledger verification works
+- append-only ledger enforcement blocks UPDATE/DELETE
+- duplicate evidence suppression works under parallel writers
+- source registry review-required behavior is surfaced during ingest
+- runtime health reports postgres backend
 
-## Latest local evidence snapshot
+## Not yet proven
 
-- Focused SQL/runtime regressions: `python3.10 -m pytest -q tests/test_v06_postgres.py tests/test_v05_runtime.py` -> `14 passed`
-- Live PostgreSQL integration: `FEME_TEST_POSTGRES_DSN=postgresql://feme:feme_dev_password@localhost:5432/feme python3.10 -m pytest -q tests/test_v07_postgres_live_integration.py` -> `5 passed, 1 skipped`
-- Full suite (default env): `python3.10 -m pytest -q` -> `31 passed, 6 skipped`
-- Note: default full-suite skips are expected when live PostgreSQL checks are not enabled by environment.
+- high-concurrency ingestion at production load
+- large-scale retrieval benchmarking
+- pgvector semantic search
+- full role-based access control
 
-## Release gate recommendation
+## Notes
 
-Treat this document as a required release artifact update for every v0.7+ package build.
+This document is a required release artifact for v0.7 dual-backend alpha packaging.

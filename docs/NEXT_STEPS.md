@@ -54,15 +54,15 @@ Test cases should cover:
 - token-budget packing efficiency
 - project isolation
 
-## 5. Complete PostgreSQL parity and live proof
+## 5. Strengthen PostgreSQL production readiness (post-v0.7)
 
-v0.7 hardening closes major adapter blockers, but production proof still requires consistently passing live PostgreSQL runs (`FEME_DB_BACKEND=postgres` and `FEME_POSTGRES_DSN`).
+v0.7 establishes a verified dual-backend alpha baseline with runnable Postgres runtime paths, live Docker-backed integration tests, and CI coverage.
 
-Priority gaps to close:
+Post-v0.7 priority gaps to close:
 
-- live Postgres integration test suite in CI
-- native Postgres full-text search and ranking path
-- stronger transaction and concurrency proof coverage
+- high-concurrency ingestion and retrieval load testing
+- broader adapter parity across all modules
+- production backup/restore automation runbooks
 
 ## 6. Add stronger embeddings
 
