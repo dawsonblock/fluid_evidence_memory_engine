@@ -247,6 +247,8 @@ class MigrationManager:
                     checksum=hashlib.sha256(_v16_sql.encode("utf-8")).hexdigest(),
                     applied=applied,
                 )
+
+            if backend == "postgres":
                 con.executescript(V08_POSTGRES_LEDGER_IMMUTABLE_SQL)
                 self._record_migration(
                     con,

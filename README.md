@@ -189,6 +189,12 @@ Run the canonical release-hardening smoke suite before cutting a release:
 bash scripts/test-release-hardening.sh
 ```
 
+Run release hardening plus the full test suite in one command:
+
+```bash
+bash scripts/test-all.sh
+```
+
 Run live PostgreSQL tests through Docker Compose:
 
 ```bash
