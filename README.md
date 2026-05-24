@@ -183,6 +183,12 @@ bash scripts/build-release-zip.sh
 bash scripts/validate-release-zip.sh "$(ls -t dist/fluid_evidence_memory_engine_v*.zip | head -n 1)"
 ```
 
+Run the canonical release-hardening smoke suite before cutting a release:
+
+```bash
+bash scripts/test-release-hardening.sh
+```
+
 Run live PostgreSQL tests through Docker Compose:
 
 ```bash
