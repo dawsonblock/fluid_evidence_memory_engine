@@ -90,10 +90,15 @@ def test_get_from_registry():
 # ImportError path (only if sentence-transformers is NOT installed)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(
-    HAS_ST, reason="sentence-transformers installed; skip ImportError path"
-)
-def test_embed_text_raises_import_error_when_not_installed():
+def test_embed_text_raises_import_error_when_not_installed(monkeypatch):
+    real_find_spec = importlib.util.find_spec
+
+    def _fake_find_spec(name: str, package=None):
+        if name == "sentence_transformers":
+            return None
+        return real_find_spec(name, package)
+
+    monkeypatch.setattr(importlib.util, "find_spec", _fake_find_spec)
     p = SentenceTransformersEmbeddingProvider()
     with pytest.raises(ImportError, match="sentence-transformers"):
         p.embed_text("hello world")

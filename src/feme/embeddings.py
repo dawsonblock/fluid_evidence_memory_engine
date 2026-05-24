@@ -164,6 +164,8 @@ class SentenceTransformersEmbeddingProvider:
     @property
     def dimensions(self) -> int:
         if self._model is not None:
+            if hasattr(self._model, "get_embedding_dimension"):
+                return self._model.get_embedding_dimension() or self._dimensions
             return (
                 self._model.get_sentence_embedding_dimension()
                 or self._dimensions
