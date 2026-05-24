@@ -645,6 +645,26 @@ def migrate(db: str = typer.Option(None)):
     print(json.dumps(result, indent=2))
 
 
+@app.command("embeddings-rebuild")
+def embeddings_rebuild(
+    db: str = typer.Option(None, help="SQLite DB path or PostgreSQL DSN"),
+    project_id: str = typer.Option("default", help="Project scope"),
+    owner_type: str = typer.Option("chunk", help="Target type: 'chunk' or 'claim'"),
+):
+    """Rebuild all embeddings for the given project and owner type."""
+    if not isinstance(project_id, str):
+        project_id = "default"
+    if not isinstance(owner_type, str):
+        owner_type = "chunk"
+    database = _db(db)
+    database.init()
+    from .maintenance import MaintenanceManager
+    result = MaintenanceManager(database).rebuild_embeddings(
+        project_id=project_id, owner_type=owner_type
+    )
+    print(json.dumps(result, indent=2))
+
+
 @app.command("runtime-health")
 def runtime_health_cmd(db: str = typer.Option(None)):
     database = _db(db)

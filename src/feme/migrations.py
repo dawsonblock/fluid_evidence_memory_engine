@@ -184,6 +184,18 @@ V14_POSTGRES_EVIDENCE_RELATION_SQL = """
 ALTER TABLE claim_evidence_links ADD COLUMN IF NOT EXISTS evidence_relation TEXT NOT NULL DEFAULT 'unknown';
 """
 
+V15_EMBEDDINGS_PROVIDER_COLUMNS_SQL = """
+ALTER TABLE embeddings ADD COLUMN provider TEXT NOT NULL DEFAULT 'hashing';
+ALTER TABLE embeddings ADD COLUMN dimensions INTEGER NOT NULL DEFAULT 256;
+ALTER TABLE embeddings ADD COLUMN config_hash TEXT NOT NULL DEFAULT '';
+"""
+
+V15_POSTGRES_EMBEDDINGS_PROVIDER_COLUMNS_SQL = """
+ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL DEFAULT 'hashing';
+ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS dimensions INTEGER NOT NULL DEFAULT 256;
+ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS config_hash TEXT NOT NULL DEFAULT '';
+"""
+
 
 class MigrationManager:
     def __init__(self, db: Database):
@@ -295,12 +307,26 @@ class MigrationManager:
                     applied=applied,
                 )
 
+            _v15_sql = (
+                V15_POSTGRES_EMBEDDINGS_PROVIDER_COLUMNS_SQL
+                if backend == "postgres"
+                else V15_EMBEDDINGS_PROVIDER_COLUMNS_SQL
+            )
+            if self._try_executescript(con, _v15_sql):
+                self._record_migration(
+                    con,
+                    migration_id="015_embeddings_provider_columns",
+                    name="v0.9 embeddings provider/dimensions/config_hash columns",
+                    checksum=hashlib.sha256(_v15_sql.encode("utf-8")).hexdigest(),
+                    applied=applied,
+                )
+
             con.execute(
                 "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
-                ("schema_version", "0.8.0", now_iso()),
+                ("schema_version", "0.9.0", now_iso()),
             )
             con.commit()
-        return {"applied": applied, "schema_version": "0.8.0"}
+        return {"applied": applied, "schema_version": "0.9.0"}
 
     @staticmethod
     def _record_migration(
