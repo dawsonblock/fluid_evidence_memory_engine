@@ -40,7 +40,8 @@ find . -name ".DS_Store" -delete
 find . -name "._*" -delete
 rm -rf __MACOSX
 
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+	&& [[ -z "$(git status --porcelain --untracked-files=normal)" ]]; then
 	# Build from git-tracked content only so local caches/egg-info do not leak.
 	# --worktree-attributes ensures local .gitattributes export-ignore rules apply.
 	git archive --worktree-attributes --format=zip --output "$OUT_FILE" HEAD
