@@ -22,12 +22,12 @@ from . import test_postgres_load_smoke as load_smoke
         (
             load_smoke,
             "sqlite:///tmp/feme.db",
-            "FEME_DB must be a PostgreSQL DSN for postgres smoke tests",
+            "FEME_DB/FEME_POSTGRES_DSN/DATABASE_URL must be a PostgreSQL DSN for postgres smoke tests",
         ),
         (
             concurrency_smoke,
             "sqlite:///tmp/feme.db",
-            "FEME_DB must be a PostgreSQL DSN for postgres smoke tests",
+            "FEME_DB/FEME_POSTGRES_DSN/DATABASE_URL must be a PostgreSQL DSN for postgres smoke tests",
         ),
         (
             load_smoke,
@@ -85,3 +85,15 @@ def test_live_postgres_dsn_accepts_fallback_env_vars(
     monkeypatch.setenv(env_name, dsn)
 
     assert module._live_postgres_dsn() == dsn
+
+
+@pytest.mark.parametrize("module", [load_smoke, concurrency_smoke])
+def test_live_postgres_dsn_prefers_real_fallback_over_placeholder_primary(
+    monkeypatch: pytest.MonkeyPatch,
+    module,
+):
+    monkeypatch.setenv("FEME_DB", "postgresql://USER:PASSWORD@HOST:5432/DBNAME")
+    monkeypatch.setenv("FEME_POSTGRES_DSN", "postgresql://feme@localhost:5432/feme")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    assert module._live_postgres_dsn() == "postgresql://feme@localhost:5432/feme"

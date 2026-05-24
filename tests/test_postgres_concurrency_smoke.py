@@ -28,20 +28,28 @@ def _is_placeholder_dsn(dsn: str) -> bool:
 
 
 def _live_postgres_dsn() -> str:
-    dsn = (
-        os.getenv("FEME_DB")
-        or os.getenv("FEME_POSTGRES_DSN")
-        or os.getenv("DATABASE_URL")
-    )
-    if not dsn:
+    candidates = [
+        os.getenv("FEME_DB"),
+        os.getenv("FEME_POSTGRES_DSN"),
+        os.getenv("DATABASE_URL"),
+    ]
+    postgres_candidates = [
+        dsn for dsn in candidates if isinstance(dsn, str) and dsn.startswith(("postgres://", "postgresql://"))
+    ]
+    for dsn in postgres_candidates:
+        if not _is_placeholder_dsn(dsn):
+            return dsn
+
+    if all(dsn in (None, "") for dsn in candidates):
         pytest.skip(
             "set FEME_DB or FEME_POSTGRES_DSN (or DATABASE_URL) to run postgres smoke tests"
         )
-    if not dsn.startswith(("postgres://", "postgresql://")):
-        pytest.skip("FEME_DB must be a PostgreSQL DSN for postgres smoke tests")
-    if _is_placeholder_dsn(dsn):
+    if postgres_candidates:
         pytest.skip("FEME_DB appears to be an example DSN; set a real Postgres DSN")
-    return dsn
+
+    pytest.skip(
+        "FEME_DB/FEME_POSTGRES_DSN/DATABASE_URL must be a PostgreSQL DSN for postgres smoke tests"
+    )
 
 
 def test_postgres_concurrency_smoke_parallel_writes():
