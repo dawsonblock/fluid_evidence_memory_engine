@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fluid-evidence-memory-engine
-Version: 0.7.5
+Version: 0.8.2
 Summary: Token-anchored claim memory with evidence links, lifecycle control, verification, review workflow, source governance, citation packets, retention, auditable retrieval, runtime storage adapters, migrations, ledger governance, and a runnable PostgreSQL backend.
 Author: Dawson Block
 Requires-Python: >=3.10
@@ -23,6 +23,8 @@ Provides-Extra: vector
 Requires-Dist: pgvector>=0.2; extra == "vector"
 Provides-Extra: tokenizers
 Requires-Dist: tiktoken>=0.7; extra == "tokenizers"
+Provides-Extra: semantic
+Requires-Dist: sentence-transformers>=2.7; extra == "semantic"
 
 # Fluid Evidence Memory Engine
 
@@ -32,6 +34,8 @@ Requires-Dist: tiktoken>=0.7; extra == "tokenizers"
 ![Tests](https://img.shields.io/badge/tests-pytest-6E44FF?logo=pytest&logoColor=white)
 
 Token-anchored, claim-based long-context memory with strict evidence provenance, review governance, and dual runtime support (SQLite + PostgreSQL).
+
+FEME v0.8.2 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
 
 > Raw sources are authoritative. Claims are structured interpretations. Summaries are disposable. Embeddings are retrieval helpers only.
 
@@ -200,12 +204,32 @@ One-command Docker + live-proof run:
 bash scripts/postgres-proof.sh
 ```
 
-Create a clean release ZIP (git-tracked files only):
+Create a clean release ZIP (Git worktree or extracted source tree):
 
 ```bash
 bash scripts/build-release-zip.sh
-bash scripts/validate-release-zip.sh "$(ls -t dist/fluid_evidence_memory_engine-v*.zip | head -n 1)"
+bash scripts/validate-release-zip.sh "$(ls -t dist/fluid_evidence_memory_engine_v*.zip | head -n 1)"
 ```
+
+Run the canonical release-hardening smoke suite before cutting a release:
+
+```bash
+bash scripts/test-release-hardening.sh
+```
+
+Run release hardening plus the full test suite in one command:
+
+```bash
+bash scripts/test-all.sh
+```
+
+CI jobs in `.github/workflows/test.yml`:
+
+- `sqlite`: full default `pytest -q` suite.
+- `release-hardening`: focused release guardrails via `bash scripts/test-release-hardening.sh`.
+- `test-all`: local-equivalent unified gate via `bash scripts/test-all.sh`.
+- `postgres-live`: live Postgres integration coverage (`tests/test_v07_postgres_live_integration.py`).
+- Manual run: use GitHub Actions `workflow_dispatch` on the `test` workflow to trigger all jobs on demand.
 
 Run live PostgreSQL tests through Docker Compose:
 
@@ -364,6 +388,8 @@ tests/
 
 ## Current Status
 
+FEME v0.8.2 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
+
 Implemented:
 
 - Runnable SQLite and PostgreSQL backend paths
@@ -372,18 +398,24 @@ Implemented:
 - Ledger append serialization and append-only protections
 - Duplicate evidence collision hardening with concurrency test coverage
 - Live PostgreSQL integration test suite and CI wiring (dual-backend alpha proof)
-- Strict extractor semantics: `json_strict` fails closed, pluggable provider registry with `json_static` and `llm_stub` built-ins
+- Strict extractor semantics: `json_strict` fails closed, with pluggable provider registry and LLM JSON provider shell
+- Structured extraction contract split into `support_relation` and `evidence_kind`, with backward-compatible legacy `evidence_relation` handling
 - Enriched extraction audit metadata (provider version, schema version, strict/fallback flags, config hash)
 - `FEME_REQUIRE_EXTRACTOR_AUDIT` policy for fail-closed audit enforcement
-- Embedding provider interface and registry (`HashingEmbeddingProvider` default, pgvector probe)
-- Extraction quality evaluation harness (`feme eval-extraction`, fixture seeds)
+- Extraction quality evaluation harness (`feme eval-extraction`, fixture seeds, repair-loop coverage)
+- Retrieval evaluation harness (`feme eval-retrieval`, public/internal fixture coverage)
+- Embedding provider interface and registry (`HashingEmbeddingProvider` default, optional sentence-transformers provider)
+- Embedding rebuild CLI and provider-aware embedding metadata columns
+- PostgreSQL load/concurrency smoke test scaffolding in addition to live integration coverage
+- Runtime-health migration completeness reporting with strict-by-default SQLite init failures
 
 Still evolving:
 
 - Broader adapter abstraction adoption across remaining modules
 - Deeper authz and multi-tenant isolation controls
-- Stronger production backup/restore automation (v0.7 documents explicit pg_dump/export workflow)
-- Higher-fidelity extraction and embedding backends (plug in a production LLM provider behind the registry)
+- Stronger production backup/restore automation
+- Higher-fidelity extractor quality, quote accuracy, and semantic retrieval thresholds
+- Stable backend contract and deployment-readiness hardening
 
 ---
 
@@ -400,6 +432,7 @@ Still evolving:
 
 - docs/ARCHITECTURE.md
 - docs/BACKUP_RESTORE.md
+- docs/EXTRACTION_BASELINE.md
 - docs/NEXT_STEPS.md
 - docs/POSTGRES_PROOF.md
 - docs/UPGRADE_V0_6_POSTGRES.md

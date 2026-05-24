@@ -16,6 +16,9 @@ psycopg[binary]>=3.1
 [postgres]
 psycopg[binary]>=3.1
 
+[semantic]
+sentence-transformers>=2.7
+
 [tokenizers]
 tiktoken>=0.7
 
