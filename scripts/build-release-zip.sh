@@ -35,7 +35,6 @@ rm -rf .pytest_cache .ruff_cache .mypy_cache
 find . -name "__pycache__" -type d -prune -exec rm -rf {} +
 find . -name "*.pyc" -delete
 find . -name "*.pyo" -delete
-find . -name "*.egg-info" -type d -prune -exec rm -rf {} +
 find . -name ".DS_Store" -delete
 find . -name "._*" -delete
 rm -rf __MACOSX
