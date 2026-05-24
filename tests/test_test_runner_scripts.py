@@ -34,4 +34,15 @@ def test_postgres_proof_script_requires_and_uses_virtualenv_python():
     assert 'VENV_DIR="${VENV_DIR:-.venv}"' in text
     assert 'if [[ ! -x "$VENV_DIR/bin/python" ]]; then' in text
     assert 'echo "Missing virtual environment interpreter at $VENV_DIR/bin/python" >&2' in text
+    assert 'EDITABLE_INSTALL="${EDITABLE_INSTALL:-0}" bash scripts/dev-setup.sh' in text
     assert '"$VENV_DIR/bin/python" -m pytest -q tests/test_v07_postgres_live_integration.py' in text
+
+
+def test_dev_setup_supports_non_editable_install_toggle():
+    root = _repo_root()
+    text = (root / "scripts" / "dev-setup.sh").read_text(encoding="utf-8")
+
+    assert 'EDITABLE_INSTALL="${EDITABLE_INSTALL:-1}"' in text
+    assert 'if [[ "$EDITABLE_INSTALL" == "1" ]]; then' in text
+    assert "-m pip install -e '.[dev,api,postgres,tokenizers]'" in text
+    assert "-m pip install '.[dev,api,postgres,tokenizers]'" in text

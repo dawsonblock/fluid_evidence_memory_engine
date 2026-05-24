@@ -10,7 +10,7 @@ KEEP_POSTGRES="${KEEP_POSTGRES:-0}"
 SKIP_SETUP="${SKIP_SETUP:-0}"
 
 if [[ "$SKIP_SETUP" != "1" ]]; then
-    bash scripts/dev-setup.sh
+    EDITABLE_INSTALL="${EDITABLE_INSTALL:-0}" bash scripts/dev-setup.sh
 fi
 
 if [[ ! -x "$VENV_DIR/bin/python" ]]; then

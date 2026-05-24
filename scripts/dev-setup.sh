@@ -7,6 +7,7 @@ cd "$ROOT_DIR"
 RECREATE_VENV="${RECREATE_VENV:-0}"
 PYTHON_BIN="${PYTHON_BIN:-}"
 VENV_DIR="${VENV_DIR:-.venv}"
+EDITABLE_INSTALL="${EDITABLE_INSTALL:-1}"
 
 choose_python() {
     if [[ -n "$PYTHON_BIN" ]]; then
@@ -45,7 +46,11 @@ if [[ ! -d "$VENV_DIR" ]]; then
 fi
 
 "$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel
-"$VENV_DIR/bin/python" -m pip install -e '.[dev,api,postgres,tokenizers]'
+if [[ "$EDITABLE_INSTALL" == "1" ]]; then
+    "$VENV_DIR/bin/python" -m pip install -e '.[dev,api,postgres,tokenizers]'
+else
+    "$VENV_DIR/bin/python" -m pip install '.[dev,api,postgres,tokenizers]'
+fi
 
 echo
 echo "Environment ready."
