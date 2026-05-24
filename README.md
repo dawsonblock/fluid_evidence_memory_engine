@@ -7,7 +7,7 @@
 
 Token-anchored, claim-based long-context memory with strict evidence provenance, review governance, and dual runtime support (SQLite + PostgreSQL).
 
-FEME v0.8.0 is a governed evidence-memory alpha with structured extraction and retrieval evaluation foundations. It is not production-grade yet.
+FEME v0.8.1 is a governed evidence-memory alpha with structured extraction and retrieval evaluation foundations plus release-test and migration-health hardening. It is not production-grade yet.
 
 > Raw sources are authoritative. Claims are structured interpretations. Summaries are disposable. Embeddings are retrieval helpers only.
 
@@ -176,7 +176,7 @@ One-command Docker + live-proof run:
 bash scripts/postgres-proof.sh
 ```
 
-Create a clean release ZIP (git-tracked files only):
+Create a clean release ZIP (Git worktree or extracted source tree):
 
 ```bash
 bash scripts/build-release-zip.sh
@@ -360,7 +360,7 @@ tests/
 
 ## Current Status
 
-FEME v0.8.0 is a governed evidence-memory alpha with structured extraction and retrieval evaluation foundations. It is not production-grade yet.
+FEME v0.8.1 is a governed evidence-memory alpha with structured extraction and retrieval evaluation foundations plus release-test and migration-health hardening. It is not production-grade yet.
 
 Implemented:
 
@@ -379,6 +379,7 @@ Implemented:
 - Embedding provider interface and registry (`HashingEmbeddingProvider` default, optional sentence-transformers provider)
 - Embedding rebuild CLI and provider-aware embedding metadata columns
 - PostgreSQL load/concurrency smoke test scaffolding in addition to live integration coverage
+- Runtime-health migration completeness reporting with strict-by-default SQLite init failures
 
 Still evolving:
 

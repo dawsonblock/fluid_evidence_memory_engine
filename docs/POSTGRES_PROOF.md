@@ -1,4 +1,4 @@
-# PostgreSQL Proof - FEME v0.8.0
+# PostgreSQL Proof - FEME v0.8.1
 
 ## Environment
 
@@ -25,7 +25,7 @@ bash scripts/postgres-proof.sh
 
 ## Proof file
 
-Raw test output: `docs/proof/postgres_v0_8_0.txt`
+Raw test output: `docs/proof/postgres_v0_8_1.txt`
 
 To capture it externally:
 
@@ -34,16 +34,20 @@ docker compose --profile postgres up -d postgres
 export FEME_DB_BACKEND=postgres
 export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
 export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
-python -m pytest -q tests/test_v07_postgres_live_integration.py \
-  | tee docs/proof/postgres_v0_8_0.txt
+python -m pytest -q \
+  tests/test_v07_postgres_live_integration.py \
+  tests/test_postgres_load_smoke.py \
+  tests/test_postgres_concurrency_smoke.py \
+  | tee docs/proof/postgres_v0_8_1.txt
 ```
 
-FEME v0.8.0 includes a fresh Docker-backed Postgres proof artifact captured on 2026-05-24.
-The included proof verifies the bundled integration suite; it does not prove production-scale behavior.
+FEME v0.8.1 includes a Docker-backed Postgres proof artifact at `docs/proof/postgres_v0_8_1.txt`.
+It proves the bundled integration, load, and concurrency smoke tests; it does not prove production-scale behavior.
 
-Postgres proof artifact is included at `docs/proof/postgres_v0_8_0.txt`. This
-proves the included Docker-backed integration suite. It does not prove
-production-scale load or high-concurrency deployment behavior.
+Postgres proof artifact is included at `docs/proof/postgres_v0_8_1.txt`. This
+proves the included Docker-backed integration, load, and concurrency smoke
+tests. It does not prove production-scale load or high-concurrency deployment
+behavior.
 
 In this workspace, Postgres live proof may skip when `psycopg` and DSN are not configured.
 
@@ -69,8 +73,8 @@ In this workspace, Postgres live proof may skip when `psycopg` and DSN are not c
 
 ## Notes
 
-Docker-backed Postgres integration proof passed in prior runs and remains part of the v0.8.0 release evidence set.
+Docker-backed Postgres integration proof remains part of the v0.8.1 release evidence set.
 
-The v0.8.0 extraction contract accepts `support_relation` and `evidence_kind` with compatibility fallback from legacy `evidence_relation` in structured payloads.
+The v0.8.1 extraction contract accepts `support_relation` and `evidence_kind` with compatibility fallback from legacy `evidence_relation` in structured payloads.
 
 High-concurrency/load behavior is not yet claimed production-grade and still requires expanded validation.

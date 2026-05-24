@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from tests import test_postgres_concurrency_smoke as concurrency_smoke
-from tests import test_postgres_load_smoke as load_smoke
+from . import test_postgres_concurrency_smoke as concurrency_smoke
+from . import test_postgres_load_smoke as load_smoke
 
 
 @pytest.mark.parametrize(

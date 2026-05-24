@@ -39,8 +39,27 @@ find . -name ".DS_Store" -delete
 find . -name "._*" -delete
 rm -rf __MACOSX
 
-# Build from git-tracked content only so local caches/egg-info do not leak.
-# --worktree-attributes ensures local .gitattributes export-ignore rules apply.
-git archive --worktree-attributes --format=zip --output "$OUT_FILE" HEAD
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	# Build from git-tracked content only so local caches/egg-info do not leak.
+	# --worktree-attributes ensures local .gitattributes export-ignore rules apply.
+	git archive --worktree-attributes --format=zip --output "$OUT_FILE" HEAD
+else
+	zip -r "$OUT_FILE" . \
+		-x ".git/*" \
+		-x "dist/*" \
+		-x "*__pycache__*" \
+		-x "*.pyc" \
+		-x "*.pyo" \
+		-x "*.pytest_cache*" \
+		-x "*.ruff_cache*" \
+		-x "*.mypy_cache*" \
+		-x "*.egg-info*" \
+		-x "*__MACOSX*" \
+		-x "*._*" \
+		-x "*.DS_Store" \
+		-x "*.sqlite" \
+		-x "*.db" \
+		-x "*.env"
+fi
 
 echo "Created $OUT_FILE"

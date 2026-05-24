@@ -37,9 +37,9 @@ class EmbeddingRegistry:
 class HashingEmbedder:
     """Deterministic local embedding for demos/tests.
 
-    This is not as strong as a real embedding model. It exists so the repository
-    works without API keys or model downloads. Replace with sentence-transformers,
-    OpenAI embeddings, or a local model when needed.
+    This is not as strong as a real embedding model. It exists so the
+    repository works without API keys or model downloads. Replace with
+    sentence-transformers, OpenAI embeddings, or a local model when needed.
     """
 
     def __init__(self, dims: int = 256):
@@ -60,7 +60,7 @@ class HashingEmbedder:
 
 class HashingEmbeddingProvider:
     name = "hashing"
-    version = "0.8.0"
+    version = "0.8.1"
 
     def __init__(self, dimensions: int = 256):
         self.dimensions = dimensions
@@ -82,7 +82,9 @@ def cosine(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
-def embedding_runtime_capabilities(database: Any | None = None) -> dict[str, Any]:
+def embedding_runtime_capabilities(
+    database: Any | None = None,
+) -> dict[str, Any]:
     pgvector_python_available = _has_python_pgvector()
     pgvector_database_enabled = _has_pgvector_extension(database)
     registry = build_default_embedding_registry()
@@ -95,7 +97,7 @@ def embedding_runtime_capabilities(database: Any | None = None) -> dict[str, Any
     return {
         "provider": "hashing-embedding-v1",
         "provider_name": provider.name if provider else "hashing",
-        "provider_version": provider.version if provider else "0.8.0",
+        "provider_version": provider.version if provider else "0.8.1",
         "provider_dimensions": provider.dimensions if provider else 256,
         "pgvector_python_available": pgvector_python_available,
         "pgvector_database_enabled": pgvector_database_enabled,
@@ -143,7 +145,7 @@ class SentenceTransformersEmbeddingProvider:
     """
 
     name = "sentence-transformers"
-    version = "0.8.0"
+    version = "0.8.1"
 
     def __init__(
         self,
@@ -162,15 +164,19 @@ class SentenceTransformersEmbeddingProvider:
     @property
     def dimensions(self) -> int:
         if self._model is not None:
-            return self._model.get_sentence_embedding_dimension() or self._dimensions
+            return (
+                self._model.get_sentence_embedding_dimension()
+                or self._dimensions
+            )
         return self._dimensions
 
     def _ensure_model(self) -> Any:
         if self._model is None:
             if importlib.util.find_spec("sentence_transformers") is None:
                 raise ImportError(
-                    "sentence-transformers is required for SentenceTransformersEmbeddingProvider. "
-                    "Install it with: pip install fluid-evidence-memory-engine[semantic]"
+                    "sentence-transformers is required for "
+                    "SentenceTransformersEmbeddingProvider. Install it with: "
+                    "pip install fluid-evidence-memory-engine[semantic]"
                 )
             import sentence_transformers  # type: ignore[import-untyped]
 

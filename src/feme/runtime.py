@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from . import __version__
 from .config import get_settings
 from .db import Database
 from .embeddings import embedding_runtime_capabilities
+from .migration_health import check_migration_completeness
 from .postgres_db import PostgresDatabase
 from .storage import PostgresStore, SQLiteStore
 
@@ -34,7 +36,14 @@ def runtime_health(database: Any | None = None) -> dict:
     health = store.health()
     caps = store.capabilities()
     embeddings = embedding_runtime_capabilities(db)
+    migration = check_migration_completeness(db)
     return {
+        "package_version": __version__,
+        "schema_version": migration["schema_version"],
+        "migration_status": migration["migration_status"],
+        "missing_schema_features": migration["missing_schema_features"],
+        "last_migration_error": migration["last_migration_error"],
+        "last_migration_error_at": migration["last_migration_error_at"],
         "health": health.__dict__,
         "capabilities": caps.__dict__,
         "embeddings": embeddings,

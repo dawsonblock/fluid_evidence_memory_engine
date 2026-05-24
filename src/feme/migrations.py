@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 
-from .db import Database
+from .db import Database, SCHEMA_VERSION
 from .utils import now_iso
 
 V05_SQL = """
@@ -347,10 +347,10 @@ class MigrationManager:
 
             con.execute(
                 "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
-                ("schema_version", "0.8.0", now_iso()),
+                ("schema_version", SCHEMA_VERSION, now_iso()),
             )
             con.commit()
-        return {"applied": applied, "schema_version": "0.8.0"}
+        return {"applied": applied, "schema_version": SCHEMA_VERSION}
 
     @staticmethod
     def _record_migration(

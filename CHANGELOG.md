@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.1 — Test Harness + Migration Reliability Hardening
+
+- Fixed source-ZIP test execution by making the local `tests` directory importable and using package-relative smoke-test imports.
+- Added a non-Git fallback path to `scripts/build-release-zip.sh` so clean extracted source trees can rebuild release ZIPs.
+- Added release-build regression coverage for both Git worktree and non-Git source-tree packaging paths.
+- Made SQLite init strict by default for migration failures, with `FEME_LENIENT_INIT=true` as an explicit escape hatch.
+- Added schema-meta tracking for migration failure state and timestamps instead of silently swallowing init-time migration exceptions.
+- Added migration completeness checks for required schema effects and surfaced `migration_status`, `missing_schema_features`, and `last_migration_error` via runtime health.
+- Preserved v0.8.0 structured extraction, retrieval evaluation, and embedding-provider behavior while hardening release/test reliability.
+
 ## v0.8.0 — Structured Extraction + Evaluation
 
 - Realigned the public release identity to `0.8.0` across package, API, and schema reporting.
