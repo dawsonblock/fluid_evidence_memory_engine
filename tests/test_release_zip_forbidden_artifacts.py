@@ -20,7 +20,11 @@ def _project_version(root: Path) -> str:
 def test_release_zip_excludes_forbidden_artifacts():
     root = _repo_root()
     version = _project_version(root)
-    zip_path = root / "dist" / f"fluid_evidence_memory_engine_v{version}.zip"
+    zip_path = (
+        root
+        / "dist"
+        / f"fluid_evidence_memory_engine_v{version.replace('.', '_')}.zip"
+    )
 
     subprocess.run(["bash", "scripts/build-release-zip.sh"], cwd=root, check=True)
     assert zip_path.exists(), f"expected release archive missing: {zip_path}"

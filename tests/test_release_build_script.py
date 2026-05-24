@@ -105,8 +105,9 @@ def test_build_release_zip_falls_back_without_git_repo(tmp_path: Path):
     _copy_source_tree(root, extracted)
 
     version = _project_version(extracted)
+    version_us = version.replace(".", "_")
     zip_path = (
-        extracted / "dist" / f"fluid_evidence_memory_engine_v{version}.zip"
+        extracted / "dist" / f"fluid_evidence_memory_engine_v{version_us}.zip"
     )
 
     subprocess.run(

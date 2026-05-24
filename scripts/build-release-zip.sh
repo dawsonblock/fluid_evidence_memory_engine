@@ -25,7 +25,8 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 OUT_DIR="${OUT_DIR:-dist}"
-OUT_FILE="$OUT_DIR/fluid_evidence_memory_engine_v${VERSION}.zip"
+VERSION_UNDERSCORED="${VERSION//./_}"
+OUT_FILE="$OUT_DIR/fluid_evidence_memory_engine_v${VERSION_UNDERSCORED}.zip"
 
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_FILE"
