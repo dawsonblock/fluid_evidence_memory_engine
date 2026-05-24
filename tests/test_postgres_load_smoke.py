@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import pytest
@@ -9,12 +10,29 @@ from feme.runtime import make_database
 from feme.runtime_pipeline import TransactionalIngestionPipeline
 
 
+def _is_placeholder_dsn(dsn: str) -> bool:
+    parsed = urlparse(dsn)
+    host = (parsed.hostname or "").upper()
+    user = (parsed.username or "").upper()
+    password = (parsed.password or "").upper()
+    dbname = parsed.path.lstrip("/").upper()
+    placeholders = {"USER", "PASSWORD", "HOST", "DBNAME"}
+    return (
+        host in placeholders
+        or user in placeholders
+        or password in placeholders
+        or dbname in placeholders
+    )
+
+
 def _live_postgres_dsn() -> str:
     dsn = os.getenv("FEME_DB")
     if not dsn:
         pytest.skip("set FEME_DB to run postgres smoke tests")
     if not dsn.startswith(("postgres://", "postgresql://")):
         pytest.skip("FEME_DB must be a PostgreSQL DSN for postgres smoke tests")
+    if _is_placeholder_dsn(dsn):
+        pytest.skip("FEME_DB appears to be an example DSN; set a real Postgres DSN")
     return dsn
 
 
