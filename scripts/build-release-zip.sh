@@ -95,4 +95,14 @@ else
 		-x "*.env"
 fi
 
+if [[ ! -s "$OUT_FILE" ]]; then
+	echo "Release ZIP was not created or is empty: $OUT_FILE" >&2
+	exit 1
+fi
+
+if ! python3 -m zipfile -t "$OUT_FILE" >/dev/null 2>&1; then
+	echo "Release ZIP failed structural integrity check: $OUT_FILE" >&2
+	exit 1
+fi
+
 echo "Created $OUT_FILE"

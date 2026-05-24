@@ -4,7 +4,9 @@
 
 - Fixed release packaging to exclude accidental extensionless SQLite database files such as `$DB_PATH`.
 - Updated the release validator to detect SQLite database artifacts by file content, not only file extension.
+- Added structural archive validation for release ZIPs (empty/corrupt ZIPs now fail fast in both build and validator scripts).
 - Added regression coverage for obvious database filenames and extensionless SQLite payloads in release ZIP validation.
+- Added regression guards for runtime-health migration error timestamp reporting and retrieval support-quote sourcing from `claim_support_spans`.
 - Preserved v0.8.1 migration reliability, runtime-health migration completeness checks, strict extractor fail-closed behavior, and public/internal review boundaries.
 - Added extraction quality baseline documentation and a verbose extraction-eval mode for per-case diagnosis.
 - Added mocked structured-extractor tests covering valid JSON, repair success/failure, quote mismatch rejection, and valid empty payloads.

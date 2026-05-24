@@ -50,3 +50,39 @@ def test_validate_release_zip_fails_on_obvious_db_filename(tmp_path):
     assert proc.returncode != 0
     combined = (proc.stdout + "\n" + proc.stderr).lower()
     assert "sqlite database artifact names" in combined
+
+
+def test_validate_release_zip_fails_on_empty_archive(tmp_path):
+    root = _repo_root()
+    bad_zip = tmp_path / "empty.zip"
+    bad_zip.write_bytes(b"")
+
+    proc = subprocess.run(
+        ["bash", "scripts/validate-release-zip.sh", str(bad_zip)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    combined = (proc.stdout + "\n" + proc.stderr).lower()
+    assert "invalid release zip" in combined
+
+
+def test_validate_release_zip_fails_on_corrupt_archive(tmp_path):
+    root = _repo_root()
+    bad_zip = tmp_path / "corrupt.zip"
+    bad_zip.write_bytes(b"not-a-zip")
+
+    proc = subprocess.run(
+        ["bash", "scripts/validate-release-zip.sh", str(bad_zip)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    combined = (proc.stdout + "\n" + proc.stderr).lower()
+    assert "integrity" in combined

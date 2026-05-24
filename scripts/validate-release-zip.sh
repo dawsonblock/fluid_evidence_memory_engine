@@ -15,6 +15,16 @@ if [[ ! -f "$ZIP_PATH" ]]; then
     exit 2
 fi
 
+if [[ ! -s "$ZIP_PATH" ]]; then
+    echo "Invalid release ZIP (empty file): $ZIP_PATH" >&2
+    exit 1
+fi
+
+if ! python3 -m zipfile -t "$ZIP_PATH" >/dev/null 2>&1; then
+    echo "Invalid release ZIP (failed structural integrity check): $ZIP_PATH" >&2
+    exit 1
+fi
+
 forbidden_pattern='egg-info/|__pycache__/|\.pyc$|\.pyo$|\.pytest_cache/|\.ruff_cache/|\.mypy_cache/|__MACOSX/|/\._|\.DS_Store|\.sqlite$|\.sqlite3$|\.db$|\.sqlite-journal$|\.db-journal$|\.sqlite-wal$|\.sqlite-shm$|\.db-wal$|\.db-shm$|\.env$'
 if zipinfo -1 "$ZIP_PATH" | grep -E "$forbidden_pattern" >/dev/null; then
     echo "Forbidden artifacts found in release ZIP: $ZIP_PATH" >&2

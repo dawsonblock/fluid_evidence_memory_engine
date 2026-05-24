@@ -30,6 +30,30 @@ def test_runtime_health_reports_complete_migration_state(tmp_path: Path):
     assert health["migration_status"] == "complete"
     assert health["missing_schema_features"] == []
     assert health["last_migration_error"] is None
+    assert "last_migration_error_at" in health
+    assert health["last_migration_error_at"] is None
+
+
+def test_runtime_health_surfaces_last_migration_error_metadata(tmp_path: Path):
+    db = _db(tmp_path)
+    timestamp = "2026-05-24T00:00:00Z"
+
+    with db.connect() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
+            ("last_migration_error", "forced-test-error", timestamp),
+        )
+        con.execute(
+            "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
+            ("last_migration_error_at", timestamp, timestamp),
+        )
+        con.commit()
+
+    health = runtime_health(db)
+
+    assert health["migration_status"] == "failed"
+    assert health["last_migration_error"] == "forced-test-error"
+    assert health["last_migration_error_at"] == timestamp
 
 
 def test_runtime_health_reports_incomplete_schema_features(tmp_path: Path):
