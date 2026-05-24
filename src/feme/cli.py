@@ -861,11 +861,20 @@ def eval_extraction(
         None,
         help="Optional extractor provider for structured modes",
     ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        help=(
+            "Include per-case expected/actual extraction details in the "
+            "JSON output"
+        ),
+    ),
 ):
     result = evaluate_extraction_fixture(
         fixture,
         extractor_mode=extractor_mode,
         extractor_provider=extractor_provider,
+        verbose=verbose,
     )
     print(json.dumps(result, indent=2))
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.2 — Artifact Leak Fix + Extraction Quality Baseline
+
+- Fixed release packaging to exclude accidental extensionless SQLite database files such as `$DB_PATH`.
+- Updated the release validator to detect SQLite database artifacts by file content, not only file extension.
+- Added regression coverage for obvious database filenames and extensionless SQLite payloads in release ZIP validation.
+- Preserved v0.8.1 migration reliability, runtime-health migration completeness checks, strict extractor fail-closed behavior, and public/internal review boundaries.
+- Added extraction quality baseline documentation and a verbose extraction-eval mode for per-case diagnosis.
+- Added mocked structured-extractor tests covering valid JSON, repair success/failure, quote mismatch rejection, and valid empty payloads.
+
 ## v0.8.1 — Test Harness + Migration Reliability Hardening
 
 - Fixed source-ZIP test execution by making the local `tests` directory importable and using package-relative smoke-test imports.

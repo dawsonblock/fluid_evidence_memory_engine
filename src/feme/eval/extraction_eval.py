@@ -24,10 +24,11 @@ def evaluate_extraction_fixture(
     *,
     extractor_mode: str = "heuristic",
     extractor_provider: str | None = None,
+    verbose: bool = False,
 ) -> dict[str, Any]:
     rows = _read_jsonl(Path(fixture_path))
     if not rows:
-        return {
+        result = {
             "fixture_path": fixture_path,
             "case_count": 0,
             "claim_count_accuracy": 0.0,
@@ -37,6 +38,9 @@ def evaluate_extraction_fixture(
             "fallback_rate": 0.0,
             "strict_rejection_rate": 0.0,
         }
+        if verbose:
+            result["cases"] = []
+        return result
 
     claim_count_ok = 0
     span_match_ok = 0
@@ -44,11 +48,14 @@ def evaluate_extraction_fixture(
     invalid_rejection_ok = 0
     fallback_count = 0
     strict_rejections = 0
+    cases: list[dict[str, Any]] = []
 
     for idx, row in enumerate(rows):
         text = str(row.get("text") or "")
         expected_claims = row.get("expected_claims") or []
-        expect_strict_rejection = bool(row.get("expect_strict_rejection", False))
+        expect_strict_rejection = bool(
+            row.get("expect_strict_rejection", False)
+        )
         structured_payload = row.get("structured_payload")
 
         chunk = {
@@ -66,7 +73,14 @@ def evaluate_extraction_fixture(
 
         json_extractor = None
         if isinstance(structured_payload, dict):
-            json_extractor = lambda _text, _chunk, p=structured_payload: p
+            def _json_extractor(
+                _text: str,
+                _chunk: dict[str, Any],
+                p: dict[str, Any] = structured_payload,
+            ) -> dict[str, Any]:
+                return p
+
+            json_extractor = _json_extractor
 
         candidates = extract_candidates_from_chunk(
             chunk,
@@ -84,6 +98,21 @@ def evaluate_extraction_fixture(
             if extractor_mode == "json_strict" and not candidates:
                 invalid_rejection_ok += 1
                 strict_rejections += 1
+            if verbose:
+                cases.append(
+                    {
+                        "source_text": text,
+                        "expected_claims": expected_claims,
+                        "actual_claims": _serialize_candidates(candidates),
+                        "expected_support_span": _first_expected_span(
+                            expected_claims
+                        ),
+                        "actual_support_span": _first_actual_span(candidates),
+                        "miss_reason": (
+                            None if not candidates else "expected_strict_rejection"
+                        ),
+                    }
+                )
             continue
 
         if len(candidates) == len(expected_claims):
@@ -107,8 +136,22 @@ def evaluate_extraction_fixture(
         ):
             fallback_count += 1
 
+        if verbose:
+            cases.append(
+                {
+                    "source_text": text,
+                    "expected_claims": expected_claims,
+                    "actual_claims": _serialize_candidates(candidates),
+                    "expected_support_span": _first_expected_span(
+                        expected_claims
+                    ),
+                    "actual_support_span": _first_actual_span(candidates),
+                    "miss_reason": _miss_reason(expected_claims, candidates),
+                }
+            )
+
     case_count = len(rows)
-    return {
+    result = {
         "fixture_path": fixture_path,
         "case_count": case_count,
         "claim_count_accuracy": claim_count_ok / case_count,
@@ -120,3 +163,64 @@ def evaluate_extraction_fixture(
         "extractor_mode": extractor_mode,
         "extractor_provider": extractor_provider,
     }
+    if verbose:
+        result["cases"] = cases
+    return result
+
+
+def _serialize_candidates(candidates: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "claim_text": c.claim_text,
+            "support_quote_text": c.support_quote_text,
+            "char_start": c.support_char_start,
+            "char_end": c.support_char_end,
+        }
+        for c in candidates
+    ]
+
+
+def _first_expected_span(
+    expected_claims: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    if not expected_claims:
+        return None
+    first = expected_claims[0]
+    return {
+        "char_start": first.get("char_start"),
+        "char_end": first.get("char_end"),
+        "support_quote_text": first.get("support_quote_text"),
+    }
+
+
+def _first_actual_span(candidates: list[Any]) -> dict[str, Any] | None:
+    if not candidates:
+        return None
+    first = candidates[0]
+    return {
+        "char_start": first.support_char_start,
+        "char_end": first.support_char_end,
+        "support_quote_text": first.support_quote_text,
+    }
+
+
+def _miss_reason(
+    expected_claims: list[dict[str, Any]],
+    candidates: list[Any],
+) -> str | None:
+    if len(candidates) != len(expected_claims):
+        return "claim_count_mismatch"
+    if not expected_claims and not candidates:
+        return None
+    if not candidates:
+        return "no_candidates"
+
+    expected = expected_claims[0]
+    actual = candidates[0]
+    if actual.support_char_start != expected.get("char_start"):
+        return "support_char_start_mismatch"
+    if actual.support_char_end != expected.get("char_end"):
+        return "support_char_end_mismatch"
+    if actual.support_quote_text != expected.get("support_quote_text"):
+        return "support_quote_mismatch"
+    return None

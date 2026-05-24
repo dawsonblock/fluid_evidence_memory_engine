@@ -49,7 +49,8 @@ clean_runtime_databases() {
 }
 
 # Pre-clean local caches so they are not accidentally staged.
-rm -rf .pytest_cache .ruff_cache .mypy_cache
+chmod -R u+w .pytest_cache .ruff_cache .mypy_cache 2>/dev/null || true
+rm -rf .pytest_cache .ruff_cache .mypy_cache || true
 find . -name "__pycache__" -type d -prune -exec rm -rf {} +
 find . -name "*.pyc" -delete
 find . -name "*.pyo" -delete
@@ -67,6 +68,8 @@ else
 	zip -r "$OUT_FILE" . \
 		-x ".git/*" \
 		-x "dist/*" \
+		-x ".venv/*" \
+		-x "venv/*" \
 		-x "*__pycache__*" \
 		-x "*.pyc" \
 		-x "*.pyo" \

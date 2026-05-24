@@ -43,7 +43,7 @@ class TestV15Migration:
         """V15 adds provider, dimensions, config_hash to embeddings."""
         db = _db(tmp_path)  # db.init() runs apply_all() internally
         result = MigrationManager(db).apply_all()  # second call: already applied
-        assert result["schema_version"] == "0.8.1"
+        assert result["schema_version"] == "0.8.2"
         # Verify V15 was applied (may have been applied during db.init)
         applied_ids = [m["id"] for m in MigrationManager(db).list_applied()]
         assert "015_embeddings_provider_columns" in applied_ids
@@ -81,7 +81,7 @@ class TestV15Migration:
         db = _db(tmp_path)
         first = MigrationManager(db).apply_all()
         second = MigrationManager(db).apply_all()
-        assert second["schema_version"] == "0.8.1"
+        assert second["schema_version"] == "0.8.2"
         # Second run has nothing new to apply
         assert second["applied"] == []
 

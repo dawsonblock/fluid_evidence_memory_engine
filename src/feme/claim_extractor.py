@@ -37,8 +37,11 @@ PROJECT_MARKERS = [
     "api",
     "module",
     "engine",
+    "runtime",
+    "audit",
     "token",
     "span",
+    "chunk",
     "retrieval",
 ]
 
@@ -170,6 +173,7 @@ def _extract_candidates_with_status(
                         "extractor_config": extractor_config or {},
                     },
                 )
+                payload = _repair_provider_payload_if_needed(payload, provider)
             structured, invalid_reason = _structured_candidates_from_json(
                 payload,
                 dict(chunk),
@@ -374,7 +378,7 @@ def extract_candidates_for_evidence(
 
 
 def _structured_candidates_from_json(
-    payload: dict[str, Any] | list[dict[str, Any]],
+    payload: Any,
     chunk: dict[str, Any],
     policy: MemoryPolicy,
     *,
@@ -426,7 +430,7 @@ def _structured_candidates_from_json(
 
 
 def _normalize_json_candidates_payload(
-    payload: dict[str, Any] | list[dict[str, Any]],
+    payload: Any,
 ) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
@@ -437,6 +441,34 @@ def _normalize_json_candidates_payload(
         if isinstance(candidates, list):
             return [item for item in candidates if isinstance(item, dict)]
     return []
+
+
+def _repair_provider_payload_if_needed(payload: Any, provider: Any) -> Any:
+    if isinstance(payload, dict) and (
+        isinstance(payload.get("claims"), list)
+        or isinstance(payload.get("candidates"), list)
+    ):
+        return payload
+    if isinstance(payload, list):
+        return payload
+
+    raw_payload = None
+    if isinstance(payload, str):
+        raw_payload = payload
+    elif isinstance(payload, dict):
+        content = payload.get("content")
+        if isinstance(content, str):
+            raw_payload = content
+
+    if not isinstance(raw_payload, str) or not raw_payload.strip():
+        return payload
+
+    from .extractors.repair import attempt_repair
+
+    repaired = attempt_repair(raw_payload, provider)
+    if repaired is not None:
+        return repaired
+    return payload
 
 
 def _candidate_from_structured_json(
@@ -679,9 +711,17 @@ def _sentence_to_candidate(
     project_relevance = 0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
 
     patterns = [
-        (r"use\s+(.+?)\s+as\s+(.+)", "uses_as"),
+        (r"(.+?)\s+configured\s+to\s+use\s+(.+)", "configured_to_use"),
+        (r"(.+?)\s+uses?\s+(.+?)\s+as\s+(.+)", "uses_as"),
         (r"(.+?)\s+should\s+use\s+(.+)", "should_use"),
         (r"(.+?)\s+must\s+use\s+(.+)", "must_use"),
+        (
+            r"(.+?)\s+(should|must)\s+"
+            r"(use|keep|store|link|require|replace|contradict|configure|build)s?\s+(.+)",
+            "modal_action",
+        ),
+        (r"(.+?)\s+requires?\s+(.+)", "requires"),
+        (r"(.+?)\s+uses?\s+(.+)", "uses"),
         (r"(.+?)\s+is\s+not\s+(.+)", "is_not"),
         (r"(.+?)\s+is\s+(.+)", "is"),
         (r"(.+?)\s+stores?\s+(.+)", "stores"),
@@ -698,11 +738,15 @@ def _sentence_to_candidate(
             groups = match.groups()
             if pred == "uses_as":
                 subject = groups[0].strip()
-                obj = groups[1].strip()
+                obj = f"{groups[1].strip()} as {groups[2].strip()}"
+            elif pred == "modal_action":
+                subject = groups[0].strip()
+                predicate = f"{groups[1].lower()}_{groups[2].lower()}"
+                obj = groups[3].strip()
             else:
                 subject = groups[0].strip()
                 obj = groups[1].strip()
-            predicate = pred
+                predicate = pred
             break
     if subject is None:
         if project_relevance < 0.7 and explicitness < 0.7:
