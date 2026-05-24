@@ -40,13 +40,20 @@ _OPTIONAL_FLOAT_FIELDS: tuple[str, ...] = (
 )
 
 
-def validate_extraction_payload(payload: dict[str, Any]) -> tuple[bool, str]:
+def validate_extraction_payload(
+    payload: dict[str, Any],
+    *,
+    source_text: str | None = None,
+) -> tuple[bool, str]:
     """Validate a structured extraction payload against the v1 schema.
 
     Parameters
     ----------
     payload:
         The raw dict returned by an :class:`~feme.extractors.base.ExtractorProvider`.
+    source_text:
+        When provided, each claim's ``support_quote_text`` is verified against
+        ``source_text[support_char_start:support_char_end]``.
 
     Returns
     -------
@@ -121,5 +128,20 @@ def validate_extraction_payload(payload: dict[str, Any]) -> tuple[bool, str]:
         meta = entry.get("metadata")
         if meta is not None and not isinstance(meta, dict):
             return False, f"claim[{idx}]_metadata_not_dict"
+
+        # Validate optional evidence_relation value
+        _VALID_EVIDENCE_RELATIONS = {"direct", "inference", "summary", "unknown"}
+        ev_rel = entry.get("evidence_relation")
+        if ev_rel is not None:
+            if not isinstance(ev_rel, str) or ev_rel not in _VALID_EVIDENCE_RELATIONS:
+                return False, f"claim[{idx}]_evidence_relation_invalid"
+
+        # Validate quote aligns with source_text when provided
+        if source_text is not None:
+            sqt = entry.get("support_quote_text")
+            if sqt is not None and isinstance(sqt, str):
+                extracted = source_text[char_start:char_end]
+                if extracted != sqt:
+                    return False, f"claim[{idx}]_quote_mismatch"
 
     return True, "ok"

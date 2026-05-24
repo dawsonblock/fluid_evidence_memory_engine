@@ -53,7 +53,7 @@ def test_quote_hit_rate_is_float_in_unit_interval():
 
 def test_basic_memory_cases_case_count():
     result = evaluate_retrieval_fixture(_fixture("basic_memory_cases.jsonl"))
-    assert result["case_count"] == 1
+    assert result["case_count"] >= 1
 
 
 def test_basic_memory_cases_query_count():

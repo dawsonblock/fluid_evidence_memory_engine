@@ -430,6 +430,11 @@ def _candidate_from_structured_json(
     if not (subject and predicate and obj and claim_text):
         return None, "invalid_schema"
 
+    _VALID_EVIDENCE_RELATIONS = {"direct", "inference", "summary", "unknown"}
+    evidence_relation: str = entry.get("evidence_relation", "unknown")  # type: ignore[assignment]
+    if not isinstance(evidence_relation, str) or evidence_relation not in _VALID_EVIDENCE_RELATIONS:
+        evidence_relation = "unknown"
+
     char_start, char_end, span_reason = _read_char_span(entry, chunk_text)
     if char_start is None or char_end is None:
         return None, span_reason or "invalid_schema"
@@ -528,6 +533,7 @@ def _candidate_from_structured_json(
             support_token_start=support_token_start_abs,
             support_token_end=support_token_end_abs,
             support_quote_text=quote_text,
+            evidence_relation=evidence_relation,
             metadata=metadata,
         ),
         None,

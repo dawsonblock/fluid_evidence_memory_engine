@@ -72,6 +72,25 @@ class GroundedAnswerBuilder:
             warnings.append(
                 "Includes lower-trust source claims; corroborate with higher-trust evidence."
             )
+        # Check for inference/summary evidence_relation in supporting evidence
+        saw_inference = False
+        for item in packet.included:
+            if item.get("kind") != "claim":
+                continue
+            for ev in item.get("supporting_evidence") or []:
+                er = ev.get("evidence_relation")
+                if er in {"inference", "summary"}:
+                    saw_inference = True
+                    break
+            if saw_inference:
+                break
+        if saw_inference:
+            warnings.append(
+                "Includes inference-derived claims; verify source spans before external use."
+            )
+        risk_summary = dict(packet.metadata.get("risk_summary", {}))
+        if saw_inference and risk_summary.get("risk") == "low":
+            risk_summary["risk"] = "medium"
         sentence_checks = _verify_sentence_citations(claim_lines)
         unsupported_count = sum(
             1 for check in sentence_checks if not bool(check.get("verified"))
@@ -88,7 +107,7 @@ class GroundedAnswerBuilder:
         return {
             "question": question,
             "project_id": project_id,
-            "risk_summary": packet.metadata.get("risk_summary", {}),
+            "risk_summary": risk_summary,
             "warnings": warnings,
             "claims": claim_lines,
             "citations": citations,

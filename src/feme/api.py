@@ -35,7 +35,7 @@ from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.6")
+app = FastAPI(title="Fluid Evidence Memory Engine", version="0.7.7")
 settings = get_settings()
 database = make_database()
 database.init()

@@ -850,7 +850,32 @@ def eval_extraction(
     print(json.dumps(result, indent=2))
 
 
-@app.command("postgres-sql-smoke")
+@app.command("eval-retrieval")
+def eval_retrieval(
+    fixture: str = typer.Option(
+        "tests/fixtures/retrieval/basic_memory_cases.jsonl",
+        help="JSONL fixture path for retrieval evaluation",
+    ),
+    extractor_mode: str = typer.Option(
+        "heuristic",
+        help="Extractor mode: heuristic, json_with_fallback, or json_strict",
+    ),
+    top_k: int = typer.Option(
+        10,
+        help="Top-K results to retrieve per query",
+    ),
+):
+    """Evaluate retrieval quality against a JSONL fixture file."""
+    from .eval.retrieval_eval import evaluate_retrieval_fixture
+
+    result = evaluate_retrieval_fixture(
+        fixture,
+        extractor_mode=extractor_mode,
+        top_k=top_k,
+    )
+    print(json.dumps(result, indent=2))
+
+
 def postgres_sql_smoke():
     """Show how FEME rewrites SQLite-style runtime SQL for PostgreSQL."""
     from .postgres_db import rewrite_sql_for_postgres

@@ -41,6 +41,10 @@ python -m pytest -q tests/test_v07_postgres_live_integration.py \
 This proves Docker-backed Postgres integration for the included test suite.
 It does not prove high-concurrency production load behavior.
 
+Postgres proof artifact is included at `docs/proof/postgres_v0_7_6.txt`. This
+proves the included Docker-backed integration suite. It does not prove
+production-scale load or high-concurrency deployment behavior.
+
 In this workspace, Postgres live proof may skip when `psycopg` and DSN are not configured.
 
 ## Proven
