@@ -123,3 +123,34 @@ def test_build_release_zip_falls_back_without_git_repo(tmp_path: Path):
     assert ".git/" not in names
     assert "pyproject.toml" in names
     assert "tests/test_postgres_smoke_dsn_guards.py" in names
+
+
+def test_build_release_zip_excludes_runtime_databases_in_fallback_path(
+    tmp_path: Path,
+):
+    root = _repo_root()
+    extracted = tmp_path / "source"
+    _copy_source_tree(root, extracted)
+
+    version = _project_version(extracted)
+    version_us = version.replace(".", "_")
+    zip_path = (
+        extracted / "dist" / f"fluid_evidence_memory_engine_v{version_us}.zip"
+    )
+
+    (extracted / "$DB_PATH").write_bytes(b"SQLite format 3\x00runtime")
+    (extracted / "memory.db").write_bytes(b"SQLite format 3\x00memory")
+    (extracted / "cache.sqlite-wal").write_bytes(b"wal")
+
+    subprocess.run(
+        ["bash", "scripts/build-release-zip.sh"],
+        cwd=extracted,
+        check=True,
+    )
+
+    with zipfile.ZipFile(zip_path) as archive:
+        names = archive.namelist()
+
+    assert "$DB_PATH" not in names
+    assert "memory.db" not in names
+    assert "cache.sqlite-wal" not in names

@@ -31,6 +31,23 @@ OUT_FILE="$OUT_DIR/fluid_evidence_memory_engine_v${VERSION_UNDERSCORED}.zip"
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_FILE"
 
+clean_runtime_databases() {
+	find . \
+		\( -path "./.git" -o -path "./.venv" -o -path "./venv" -o -path "./dist" -o -path "./build" \) -prune \
+		-o \( \
+			-name '$DB_PATH' \
+			-o -name "*.sqlite" \
+			-o -name "*.sqlite3" \
+			-o -name "*.db" \
+			-o -name "*.sqlite-journal" \
+			-o -name "*.db-journal" \
+			-o -name "*.sqlite-wal" \
+			-o -name "*.sqlite-shm" \
+			-o -name "*.db-wal" \
+			-o -name "*.db-shm" \
+		\) -type f -delete
+}
+
 # Pre-clean local caches so they are not accidentally staged.
 rm -rf .pytest_cache .ruff_cache .mypy_cache
 find . -name "__pycache__" -type d -prune -exec rm -rf {} +
@@ -39,6 +56,7 @@ find . -name "*.pyo" -delete
 find . -name ".DS_Store" -delete
 find . -name "._*" -delete
 rm -rf __MACOSX
+clean_runtime_databases
 
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
 	&& [[ -z "$(git status --porcelain --untracked-files=normal)" ]]; then
@@ -59,8 +77,18 @@ else
 		-x "*__MACOSX*" \
 		-x "*._*" \
 		-x "*.DS_Store" \
+		-x '$DB_PATH' \
+		-x '*/$DB_PATH' \
+		-x "memory.db" \
 		-x "*.sqlite" \
+		-x "*.sqlite3" \
 		-x "*.db" \
+		-x "*.sqlite-journal" \
+		-x "*.db-journal" \
+		-x "*.sqlite-wal" \
+		-x "*.sqlite-shm" \
+		-x "*.db-wal" \
+		-x "*.db-shm" \
 		-x "*.env"
 fi
 

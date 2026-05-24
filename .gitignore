@@ -17,9 +17,19 @@ venv/
 .env.*
 
 # Local database/runtime artifacts
+# Runtime databases / accidental shell-variable filenames
+$DB_PATH
+*/$DB_PATH
+memory.db
 *.sqlite
 *.sqlite3
 *.db
+*.sqlite-journal
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
 
 # Coverage artifacts
 .coverage
