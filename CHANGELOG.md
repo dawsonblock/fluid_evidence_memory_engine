@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.2 — Artifact Leak Fix + Extraction Quality Baseline
+## v0.8.2 — Release Identity + Builder Reliability Repair
 
 - Fixed release packaging to exclude accidental extensionless SQLite database files such as `$DB_PATH`.
 - Updated the release validator to detect SQLite database artifacts by file content, not only file extension.
