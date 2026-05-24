@@ -335,6 +335,14 @@ def extract_candidates_for_evidence(
         provider = (provider_registry or build_default_registry()).get(provider_label)
         fallback_used = outcome == HEURISTIC_FALLBACK
         error_type = _error_type_from_detail(detail)
+        extra_provider_meta: dict[str, Any] = {}
+        if provider is not None:
+            _get_meta = getattr(provider, "provider_metadata", None)
+            if callable(_get_meta):
+                try:
+                    extra_provider_meta = dict(_get_meta())
+                except Exception:  # noqa: BLE001
+                    pass
         try:
             _persist_extractor_audit(
                 db,
@@ -350,6 +358,7 @@ def extract_candidates_for_evidence(
                 strict_mode=extractor_mode == "json_strict",
                 fallback_used=fallback_used,
                 error_type=error_type,
+                extra_provider_meta=extra_provider_meta,
                 require_success=require_extractor_audit,
                 con=con,
             )
@@ -371,6 +380,8 @@ def _structured_candidates_from_json(
     *,
     extractor_provider: str,
 ) -> tuple[list[ClaimCandidate], str | None]:
+    from .extractors.schema import validate_extraction_payload
+
     entries = _normalize_json_candidates_payload(payload)
     if not entries:
         return [], "invalid_json"
@@ -379,6 +390,12 @@ def _structured_candidates_from_json(
     chunk_text = str(chunk.get("text") or "")
     tokenized = Tokenizer().tokenize(chunk_text)
     invalid_reason: str | None = None
+
+    # Validate the full payload before per-entry processing when it is a dict
+    if isinstance(payload, dict):
+        ok, schema_reason = validate_extraction_payload(payload, source_text=chunk_text)
+        if not ok:
+            invalid_reason = schema_reason
 
     for entry in entries:
         candidate, reason = _candidate_from_structured_json(
@@ -807,7 +824,8 @@ def _persist_extractor_audit(
     strict_mode: bool,
     fallback_used: bool,
     error_type: str | None,
-    require_success: bool,
+    extra_provider_meta: dict[str, Any] | None = None,
+    require_success: bool = False,
     con=None,
 ) -> None:
     metadata = {
@@ -828,6 +846,8 @@ def _persist_extractor_audit(
             extractor_config,
         ),
     }
+    if extra_provider_meta:
+        metadata.update(extra_provider_meta)
     params = (
         new_id("exaudit"),
         chunk.get("project_id") or "default",

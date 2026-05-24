@@ -24,9 +24,11 @@ class ExtractorRegistry:
 
 def build_default_registry() -> ExtractorRegistry:
     from .json_static import JsonStaticExtractorProvider
+    from .llm_json import LLMJsonExtractor
     from .llm_stub import LlmStubExtractorProvider
 
     registry = ExtractorRegistry()
     registry.register(JsonStaticExtractorProvider())
     registry.register(LlmStubExtractorProvider())
+    registry.register(LLMJsonExtractor())
     return registry

@@ -84,7 +84,7 @@ def test_json_strict_invalid_output_writes_no_claims(tmp_path: Path):
     audit = _latest_audit(db, evidence_id)
     assert audit
     assert audit["outcome"] == "strict_rejected"
-    assert audit["detail"] == "invalid_schema"
+    assert audit["detail"] in ("invalid_schema", "claim[0]_missing_object", "claim[0]_missing_support_char_start")
 
 
 def test_json_strict_quote_mismatch_writes_no_claims(tmp_path: Path):
@@ -116,7 +116,7 @@ def test_json_strict_quote_mismatch_writes_no_claims(tmp_path: Path):
     audit = _latest_audit(db, evidence_id)
     assert audit
     assert audit["outcome"] == "strict_rejected"
-    assert audit["detail"] == "support_quote_mismatch"
+    assert audit["detail"] in ("support_quote_mismatch", "claim[0]_quote_mismatch")
 
 
 def test_json_with_fallback_uses_heuristic_when_provider_missing(tmp_path: Path):

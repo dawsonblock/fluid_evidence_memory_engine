@@ -83,14 +83,29 @@ def validate_extraction_payload(
             if not isinstance(val, str) or not val.strip():
                 return False, f"claim[{idx}]_missing_{field}"
 
-        # Validate required integer span fields
-        for field in _REQUIRED_SPAN_FIELDS:
-            val = entry.get(field)
-            if not isinstance(val, int):
-                return False, f"claim[{idx}]_missing_{field}"
+        # Validate required integer span fields (support direct or evidence_span alias)
+        evidence_span = entry.get("evidence_span")
+        has_direct_span = (
+            isinstance(entry.get("support_char_start"), int)
+            and isinstance(entry.get("support_char_end"), int)
+        )
+        has_alias_span = (
+            isinstance(evidence_span, dict)
+            and isinstance(evidence_span.get("char_start"), int)
+            and isinstance(evidence_span.get("char_end"), int)
+        )
+        if not has_direct_span and not has_alias_span:
+            # Provide field-specific error when one direct field is present
+            if isinstance(entry.get("support_char_start"), int):
+                return False, f"claim[{idx}]_missing_support_char_end"
+            return False, f"claim[{idx}]_missing_support_char_start"
 
-        char_start = entry["support_char_start"]
-        char_end = entry["support_char_end"]
+        if has_direct_span:
+            char_start = entry["support_char_start"]
+            char_end = entry["support_char_end"]
+        else:
+            char_start = evidence_span["char_start"]
+            char_end = evidence_span["char_end"]
         if char_start < 0:
             return False, f"claim[{idx}]_support_char_start_negative"
         if char_end <= char_start:
