@@ -12,6 +12,7 @@
 - Added semantic embedding provider foundations with an optional sentence-transformers provider.
 - Added embeddings rebuild support and embedding metadata columns for provider-aware rebuilds.
 - Added PostgreSQL load and concurrency smoke test scaffolding alongside the live integration suite.
+- Refreshed PostgreSQL proof artifact path for v0.8.0 at `docs/proof/postgres_v0_8_0.txt`.
 - Preserved review-boundary behavior, extractor audit trails, and strict/public retrieval safety defaults.
 
 ## v0.7.6 — Release Hygiene + Postgres Proof Capture

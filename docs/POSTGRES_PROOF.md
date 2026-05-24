@@ -25,7 +25,7 @@ bash scripts/postgres-proof.sh
 
 ## Proof file
 
-Raw test output: `docs/proof/postgres_v0_7_6.txt`
+Raw test output: `docs/proof/postgres_v0_8_0.txt`
 
 To capture it externally:
 
@@ -35,13 +35,13 @@ export FEME_DB_BACKEND=postgres
 export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
 export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
 python -m pytest -q tests/test_v07_postgres_live_integration.py \
-  | tee docs/proof/postgres_v0_7_6.txt
+  | tee docs/proof/postgres_v0_8_0.txt
 ```
 
-FEME v0.8.0 includes prior Docker-backed Postgres proof artifacts.
+FEME v0.8.0 includes a fresh Docker-backed Postgres proof artifact captured on 2026-05-24.
 The included proof verifies the bundled integration suite; it does not prove production-scale behavior.
 
-Postgres proof artifact is included at `docs/proof/postgres_v0_7_6.txt`. This
+Postgres proof artifact is included at `docs/proof/postgres_v0_8_0.txt`. This
 proves the included Docker-backed integration suite. It does not prove
 production-scale load or high-concurrency deployment behavior.
 
