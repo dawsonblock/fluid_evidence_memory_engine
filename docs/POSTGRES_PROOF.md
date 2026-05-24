@@ -58,6 +58,7 @@ In this workspace, Postgres live proof may skip when `psycopg` and DSN are not c
 - duplicate evidence suppression works under parallel writers
 - source registry review-required behavior is surfaced during ingest
 - runtime health reports postgres backend
+- `claim_evidence_links` persists split semantics (`evidence_relation` support label + `evidence_kind` derivation type)
 
 ## Not yet proven
 
@@ -69,5 +70,7 @@ In this workspace, Postgres live proof may skip when `psycopg` and DSN are not c
 ## Notes
 
 Docker-backed Postgres integration proof passed in prior runs and remains part of the v0.8.0 release evidence set.
+
+The v0.8.0 extraction contract accepts `support_relation` and `evidence_kind` with compatibility fallback from legacy `evidence_relation` in structured payloads.
 
 High-concurrency/load behavior is not yet claimed production-grade and still requires expanded validation.

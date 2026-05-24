@@ -4,6 +4,12 @@
 
 v0.8.0 establishes strict extractor semantics, provider registry wiring, repair support, and fail-closed behavior for `json_strict`.
 
+Current extraction contract in v0.8.0:
+
+- `support_relation`: label for how a source supports or contradicts a claim link
+- `evidence_kind`: derivation kind (`direct|inference|summary|unknown`)
+- `evidence_relation`: backward-compatible alias accepted for older payloads
+
 Next step: plug in a production structured provider (LLM or rules engine) behind the provider registry while preserving current schema validation and audit metadata.
 
 ## 2. Add review UI
@@ -35,6 +41,7 @@ Test cases should cover:
 - stale claim suppression
 - unsupported answer rejection
 - source-span accuracy
+- support relation and evidence kind consistency checks
 - token-budget packing efficiency
 - project isolation
 

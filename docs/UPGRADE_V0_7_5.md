@@ -4,6 +4,8 @@ v0.7.5 hardens the extraction pipeline with fail-closed `json_strict` behavior, 
 
 ## Main changes
 
+Note for newer releases: v0.8.0 keeps `claim-extraction-v1` but separates support/link semantics from derivation semantics (`support_relation` + `evidence_kind`) while still accepting legacy `evidence_relation` payloads.
+
 - `json_strict` now fails closed when no structured extractor provider is configured or when structured output is invalid — no silent fallback to heuristic extraction.
 - Added extractor provider interface (`ExtractorProvider` Protocol) and `ExtractorRegistry` with built-in `json_static` and `llm_stub` providers in `src/feme/extractors/`.
 - Extended `extractor_audit.metadata_json` to capture: `provider_name`, `provider_version`, `schema_version`, `strict_mode`, `fallback_used`, `error_type`, `config_hash`.
