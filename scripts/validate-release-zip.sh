@@ -15,7 +15,7 @@ if [[ ! -f "$ZIP_PATH" ]]; then
     exit 2
 fi
 
-forbidden_pattern='egg-info/|__pycache__/|\.pyc$|\.pytest_cache/'
+forbidden_pattern='egg-info/|__pycache__/|\.pyc$|\.pyo$|\.pytest_cache/|\.ruff_cache/|\.mypy_cache/|__MACOSX/|/\._|\.DS_Store|\.sqlite$|\.db$|\.env$'
 if zipinfo -1 "$ZIP_PATH" | grep -E "$forbidden_pattern" >/dev/null; then
     echo "Forbidden artifacts found in release ZIP: $ZIP_PATH" >&2
     zipinfo -1 "$ZIP_PATH" | grep -E "$forbidden_pattern" >&2 || true

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.7.6 — Release Hygiene + Postgres Proof Capture
+
+- Cleaned release ZIP packaging: pre-cleanup removes `__pycache__`, `.pyc`, `.pyo`, `.egg-info`, `.DS_Store`, and `._*` before archiving.
+- Added validation for macOS metadata artifacts (`__MACOSX/`, `._*`, `.DS_Store`) in `validate-release-zip.sh`.
+- Added stricter release artifact checks for `.pyo`, `.ruff_cache`, `.mypy_cache`, `.sqlite`, `.db`, `.env`.
+- Fixed release ZIP filename format to `fluid_evidence_memory_engine_v{VERSION}.zip`.
+- Added `tests/test_strict_extractor_semantics.py` regression guard for strict extractor fail-closed behavior.
+- Updated `docs/POSTGRES_PROOF.md` for v0.7.6 with `postgres_v0_7_6.txt` proof path.
+- Preserved v0.7.5 strict extractor semantics and review boundary behavior.
+- Bumped package/runtime/API metadata to `0.7.6`.
+
 ## v0.7.5 - Strict Extractor Semantics + Runtime Safety
 
 - Fixed `json_strict` to fail closed when no structured extractor provider is configured or when structured output is invalid.

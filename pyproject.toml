@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fluid-evidence-memory-engine"
-version = "0.7.5"
+version = "0.7.6"
 description = "Token-anchored claim memory with evidence links, lifecycle control, verification, review workflow, source governance, citation packets, retention, auditable retrieval, runtime storage adapters, migrations, ledger governance, and a runnable PostgreSQL backend."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,6 +17,7 @@ dev = ["pytest>=8.0", "ruff>=0.4", "psycopg[binary]>=3.1"]
 postgres = ["psycopg[binary]>=3.1"]
 vector = ["pgvector>=0.2"]
 tokenizers = ["tiktoken>=0.7"]
+semantic = ["sentence-transformers>=2.7"]
 
 [project.scripts]
 feme = "feme.cli:app"

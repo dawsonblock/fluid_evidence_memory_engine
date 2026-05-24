@@ -1,0 +1,4 @@
+{"text":"FEME stores claims in PostgreSQL.","claim_type":"direct","expected_claims":[{"subject":"FEME","predicate":"stores","object":"claims in PostgreSQL"}]}
+{"text":"Because FEME uses PostgreSQL, it can handle concurrent writes efficiently.","claim_type":"inference","expected_inference":true,"expected_claim_count_min":1}
+{"text":"The write governor checks for existing claims before inserting, which means duplicates are rare.","claim_type":"inference","expected_inference":true,"expected_claim_count_min":1}
+{"text":"Memory confidence is 0.9 for official records.","claim_type":"direct","expected_claims":[{"subject":"Memory confidence","predicate":"is","object":"0.9 for official records"}]}

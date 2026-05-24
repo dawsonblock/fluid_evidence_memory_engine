@@ -30,6 +30,7 @@ def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
         "0.7.3",
         "0.7.4",
         "0.7.5",
+        "0.8.0",
     }
     health = runtime_health(db)
     assert health["health"]["ok"] is True

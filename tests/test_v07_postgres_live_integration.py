@@ -57,6 +57,7 @@ def test_postgres_governed_ingest_retrieve_and_ledger_verify(
         "0.7.3",
         "0.7.4",
         "0.7.5",
+        "0.8.0",
     }
 
     text = (
@@ -118,6 +119,7 @@ def test_postgres_init_and_migrate(postgres_db):
         "0.7.3",
         "0.7.4",
         "0.7.5",
+        "0.8.0",
     }
 
 

@@ -176,6 +176,14 @@ CREATE INDEX IF NOT EXISTS idx_extractor_audit_project ON extractor_audit(projec
 CREATE INDEX IF NOT EXISTS idx_extractor_audit_evidence ON extractor_audit(evidence_id, created_at);
 """
 
+V14_EVIDENCE_RELATION_SQL = """
+ALTER TABLE claim_evidence_links ADD COLUMN evidence_relation TEXT DEFAULT 'unknown';
+"""
+
+V14_POSTGRES_EVIDENCE_RELATION_SQL = """
+ALTER TABLE claim_evidence_links ADD COLUMN IF NOT EXISTS evidence_relation TEXT NOT NULL DEFAULT 'unknown';
+"""
+
 
 class MigrationManager:
     def __init__(self, db: Database):
@@ -273,12 +281,26 @@ class MigrationManager:
                     applied=applied,
                 )
 
+            _v14_sql = (
+                V14_POSTGRES_EVIDENCE_RELATION_SQL
+                if backend == "postgres"
+                else V14_EVIDENCE_RELATION_SQL
+            )
+            if self._try_executescript(con, _v14_sql):
+                self._record_migration(
+                    con,
+                    migration_id="014_evidence_relation",
+                    name="v0.8 evidence_relation label on claim_evidence_links",
+                    checksum=hashlib.sha256(_v14_sql.encode("utf-8")).hexdigest(),
+                    applied=applied,
+                )
+
             con.execute(
                 "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
-                ("schema_version", "0.7.5", now_iso()),
+                ("schema_version", "0.8.0", now_iso()),
             )
             con.commit()
-        return {"applied": applied, "schema_version": "0.7.5"}
+        return {"applied": applied, "schema_version": "0.8.0"}
 
     @staticmethod
     def _record_migration(

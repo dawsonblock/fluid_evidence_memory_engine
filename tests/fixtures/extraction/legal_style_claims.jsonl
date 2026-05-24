@@ -1,0 +1,3 @@
+{"text":"Pursuant to the agreement dated 2024-01-15, the vendor shall deliver the software within ninety days.","expected_claims":[{"claim_text":"the vendor shall deliver the software within ninety days","support_quote_text":"the vendor shall deliver the software within ninety days"}]}
+{"text":"The contract requires that all data be stored within the European Economic Area.","expected_claims":[{"claim_text":"all data be stored within the European Economic Area","support_quote_text":"all data be stored within the European Economic Area"}]}
+{"text":"Section 4.2 mandates a retention period of seven years for audit logs.","expected_claims":[{"claim_text":"retention period of seven years for audit logs","support_quote_text":"retention period of seven years for audit logs"}]}

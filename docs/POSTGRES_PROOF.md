@@ -1,4 +1,4 @@
-# PostgreSQL Proof - FEME v0.7.5
+# PostgreSQL Proof - FEME v0.7.6
 
 ## Environment
 
@@ -23,11 +23,25 @@ Equivalent one-command helper:
 bash scripts/postgres-proof.sh
 ```
 
-## Result
+## Proof file
 
-- Docker-backed Postgres integration proof command is unchanged and remains the required v0.7.5 proof path.
-- Preserve the exact raw test output in `docs/proof/postgres_v0_7_5.txt` after running the live command externally.
-- In this workspace, Postgres live proof may skip when `psycopg` and DSN are not configured.
+Raw test output: `docs/proof/postgres_v0_7_6.txt`
+
+To capture it externally:
+
+```bash
+docker compose --profile postgres up -d postgres
+export FEME_DB_BACKEND=postgres
+export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+python -m pytest -q tests/test_v07_postgres_live_integration.py \
+  | tee docs/proof/postgres_v0_7_6.txt
+```
+
+This proves Docker-backed Postgres integration for the included test suite.
+It does not prove high-concurrency production load behavior.
+
+In this workspace, Postgres live proof may skip when `psycopg` and DSN are not configured.
 
 ## Proven
 

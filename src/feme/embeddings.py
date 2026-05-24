@@ -121,3 +121,69 @@ def _has_pgvector_extension(database: Any | None) -> bool:
         return bool(row)
     except Exception:
         return False
+
+
+class SentenceTransformersEmbeddingProvider:
+    """Semantic embedding provider backed by sentence-transformers.
+
+    Requires the optional ``semantic`` extra::
+
+        pip install fluid-evidence-memory-engine[semantic]
+
+    If ``sentence_transformers`` is not installed, importing this class is safe
+    but calling :meth:`embed_text` will raise ``ImportError`` with a clear
+    installation hint.
+
+    Args:
+        model_name: HuggingFace model identifier. Defaults to
+            ``"all-MiniLM-L6-v2"`` (384-dimensional, MIT-licensed, ~90 MB).
+        device: Torch device string (``"cpu"``, ``"cuda"``, etc.). ``None``
+            lets sentence-transformers auto-select.
+        normalize: Whether to L2-normalize output vectors. Default ``True``.
+    """
+
+    name = "sentence-transformers"
+    version = "1.0.0"
+
+    def __init__(
+        self,
+        model_name: str = "all-MiniLM-L6-v2",
+        *,
+        device: str | None = None,
+        normalize: bool = True,
+        dimensions: int = 384,
+    ) -> None:
+        self._model_name = model_name
+        self._device = device
+        self._normalize = normalize
+        self._dimensions = dimensions
+        self._model: Any = None  # lazy-loaded on first call
+
+    @property
+    def dimensions(self) -> int:
+        if self._model is not None:
+            return self._model.get_sentence_embedding_dimension() or self._dimensions
+        return self._dimensions
+
+    def _ensure_model(self) -> Any:
+        if self._model is None:
+            if importlib.util.find_spec("sentence_transformers") is None:
+                raise ImportError(
+                    "sentence-transformers is required for SentenceTransformersEmbeddingProvider. "
+                    "Install it with: pip install fluid-evidence-memory-engine[semantic]"
+                )
+            import sentence_transformers  # type: ignore[import-untyped]
+
+            kwargs: dict[str, Any] = {}
+            if self._device is not None:
+                kwargs["device"] = self._device
+            self._model = sentence_transformers.SentenceTransformer(
+                self._model_name, **kwargs
+            )
+        return self._model
+
+    def embed_text(self, text: str) -> list[float]:
+        model = self._ensure_model()
+        vec = model.encode(text, normalize_embeddings=self._normalize)
+        return vec.tolist()
+

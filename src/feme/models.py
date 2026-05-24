@@ -115,6 +115,7 @@ class ClaimCandidate(BaseModel):
     support_token_start: int | None = None
     support_token_end: int | None = None
     support_quote_text: str | None = None
+    evidence_relation: str = "unknown"
     valid_from: str | None = None
     valid_to: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

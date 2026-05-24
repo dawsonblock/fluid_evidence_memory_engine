@@ -25,10 +25,20 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 OUT_DIR="${OUT_DIR:-dist}"
-OUT_FILE="$OUT_DIR/fluid_evidence_memory_engine-v${VERSION}.zip"
+OUT_FILE="$OUT_DIR/fluid_evidence_memory_engine_v${VERSION}.zip"
 
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_FILE"
+
+# Pre-clean local caches so they are not accidentally staged.
+rm -rf .pytest_cache .ruff_cache .mypy_cache
+find . -name "__pycache__" -type d -prune -exec rm -rf {} +
+find . -name "*.pyc" -delete
+find . -name "*.pyo" -delete
+find . -name "*.egg-info" -type d -prune -exec rm -rf {} +
+find . -name ".DS_Store" -delete
+find . -name "._*" -delete
+rm -rf __MACOSX
 
 # Build from git-tracked content only so local caches/egg-info do not leak.
 # --worktree-attributes ensures local .gitattributes export-ignore rules apply.

@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS claim_evidence_links (
     span_id TEXT REFERENCES token_spans(id) ON DELETE SET NULL,
     support_type TEXT NOT NULL DEFAULT 'supports',
     confidence REAL NOT NULL DEFAULT 0.5,
+    evidence_relation TEXT NOT NULL DEFAULT 'unknown',
     created_at TEXT NOT NULL
 );
 

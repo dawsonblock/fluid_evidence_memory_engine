@@ -1,0 +1,3 @@
+{"text":"FEME uses PostgreSQL as its primary database. The runtime applies idempotent migrations on startup. Extractor audit rows are kept for every ingested chunk.","expected_claim_count_min":2}
+{"text":"The write governor enforces deduplication before committing claims. Evidence links store a support_type of either supports or corroborates. Schema migrations are numbered sequentially.","expected_claim_count_min":2}
+{"text":"Claims extracted from official records receive higher initial confidence than those from secondary sources. The policy engine can override confidence scores at write time.","expected_claim_count_min":2}

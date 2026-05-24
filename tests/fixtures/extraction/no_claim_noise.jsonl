@@ -1,0 +1,4 @@
+{"text":"The quick brown fox jumps over the lazy dog.","expected_claim_count_max":0,"note":"generic sentence with no assertable claim"}
+{"text":"Once upon a time in a land far away.","expected_claim_count_max":0,"note":"narrative fragment, no factual claim"}
+{"text":"1, 2, 3, 4, 5.","expected_claim_count_max":0,"note":"bare numeric enumeration"}
+{"text":"See figure 3 for details.","expected_claim_count_max":0,"note":"reference without content"}
