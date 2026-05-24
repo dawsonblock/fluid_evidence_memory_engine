@@ -48,6 +48,18 @@ class TestV15Migration:
         applied_ids = [m["id"] for m in MigrationManager(db).list_applied()]
         assert "015_embeddings_provider_columns" in applied_ids
 
+    def test_sqlite_init_skips_postgres_only_ledger_migration_but_applies_later_ones(
+        self, tmp_path: Path
+    ):
+        """SQLite should not record Postgres-only V08, and later migrations must still apply."""
+        db = _db(tmp_path)
+        applied_ids = [m["id"] for m in MigrationManager(db).list_applied()]
+
+        assert "008_postgres_ledger_immutable" not in applied_ids
+        assert "012_sqlite_ledger_immutable" in applied_ids
+        assert "015_embeddings_provider_columns" in applied_ids
+        assert "016_evidence_kind" in applied_ids
+
     def test_new_columns_have_defaults(self, tmp_path: Path):
         """Rows inserted before V15 upgrade get default values for new columns."""
         db = _db(tmp_path)
