@@ -196,6 +196,14 @@ ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS dimensions INTEGER NOT NULL DEFA
 ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS config_hash TEXT NOT NULL DEFAULT '';
 """
 
+V16_EVIDENCE_KIND_SQL = """
+ALTER TABLE claim_evidence_links ADD COLUMN evidence_kind TEXT NOT NULL DEFAULT 'unknown';
+"""
+
+V16_POSTGRES_EVIDENCE_KIND_SQL = """
+ALTER TABLE claim_evidence_links ADD COLUMN IF NOT EXISTS evidence_kind TEXT NOT NULL DEFAULT 'unknown';
+"""
+
 
 class MigrationManager:
     def __init__(self, db: Database):
@@ -223,6 +231,20 @@ class MigrationManager:
                     checksum=hashlib.sha256(
                         V07_POSTGRES_NATIVE_FTS_SQL.encode("utf-8")
                     ).hexdigest(),
+                    applied=applied,
+                )
+
+            _v16_sql = (
+                V16_POSTGRES_EVIDENCE_KIND_SQL
+                if backend == "postgres"
+                else V16_EVIDENCE_KIND_SQL
+            )
+            if self._try_executescript(con, _v16_sql):
+                self._record_migration(
+                    con,
+                    migration_id="016_evidence_kind",
+                    name="v0.8 evidence_kind label on claim_evidence_links",
+                    checksum=hashlib.sha256(_v16_sql.encode("utf-8")).hexdigest(),
                     applied=applied,
                 )
                 con.executescript(V08_POSTGRES_LEDGER_IMMUTABLE_SQL)
@@ -323,10 +345,10 @@ class MigrationManager:
 
             con.execute(
                 "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
-                ("schema_version", "0.9.0", now_iso()),
+                ("schema_version", "0.8.0", now_iso()),
             )
             con.commit()
-        return {"applied": applied, "schema_version": "0.9.0"}
+        return {"applied": applied, "schema_version": "0.8.0"}
 
     @staticmethod
     def _record_migration(

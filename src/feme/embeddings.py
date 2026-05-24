@@ -60,7 +60,7 @@ class HashingEmbedder:
 
 class HashingEmbeddingProvider:
     name = "hashing"
-    version = "1.0.0"
+    version = "0.8.0"
 
     def __init__(self, dimensions: int = 256):
         self.dimensions = dimensions
@@ -95,7 +95,7 @@ def embedding_runtime_capabilities(database: Any | None = None) -> dict[str, Any
     return {
         "provider": "hashing-embedding-v1",
         "provider_name": provider.name if provider else "hashing",
-        "provider_version": provider.version if provider else "1.0.0",
+        "provider_version": provider.version if provider else "0.8.0",
         "provider_dimensions": provider.dimensions if provider else 256,
         "pgvector_python_available": pgvector_python_available,
         "pgvector_database_enabled": pgvector_database_enabled,
@@ -143,7 +143,7 @@ class SentenceTransformersEmbeddingProvider:
     """
 
     name = "sentence-transformers"
-    version = "1.0.0"
+    version = "0.8.0"
 
     def __init__(
         self,

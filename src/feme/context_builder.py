@@ -136,6 +136,26 @@ class ContextBuilder:
                        s.token_end,
                        s.quote_sha256,
                        s.quote_text,
+                                             COALESCE((
+                                                     SELECT l.evidence_relation
+                                                     FROM claim_evidence_links l
+                                                     WHERE l.claim_id = s.claim_id
+                                                         AND l.evidence_id = s.evidence_id
+                                                         AND COALESCE(l.chunk_id, '') = COALESCE(s.chunk_id, '')
+                                                         AND COALESCE(l.span_id, '') = COALESCE(s.span_id, '')
+                                                     ORDER BY l.created_at DESC
+                                                     LIMIT 1
+                                             ), 'supports') AS evidence_relation,
+                                             COALESCE((
+                                                     SELECT l.evidence_kind
+                                                     FROM claim_evidence_links l
+                                                     WHERE l.claim_id = s.claim_id
+                                                         AND l.evidence_id = s.evidence_id
+                                                         AND COALESCE(l.chunk_id, '') = COALESCE(s.chunk_id, '')
+                                                         AND COALESCE(l.span_id, '') = COALESCE(s.span_id, '')
+                                                     ORDER BY l.created_at DESC
+                                                     LIMIT 1
+                                             ), 'unknown') AS evidence_kind,
                        e.title,
                        e.source_type,
                        e.source_uri,
@@ -164,7 +184,12 @@ class ContextBuilder:
                 """,
                 (claim_id,),
             ).fetchall()
-        return [dict(row) for row in rows]
+        out = []
+        for row in rows:
+            item = dict(row)
+            item.setdefault("evidence_kind", "unknown")
+            out.append(item)
+        return out
 
     def _contradictions(self, claim_id: str) -> list[dict]:
         with self.db.connect() as con:

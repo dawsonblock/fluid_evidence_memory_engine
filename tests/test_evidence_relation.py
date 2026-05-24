@@ -48,6 +48,8 @@ def test_claim_candidate_default_evidence_relation():
         claim_text="FEME uses PostgreSQL.",
     )
     assert c.evidence_relation == "unknown"
+    assert c.support_relation == "supports"
+    assert c.evidence_kind == "unknown"
 
 
 def test_claim_candidate_custom_evidence_relation():
@@ -59,6 +61,20 @@ def test_claim_candidate_custom_evidence_relation():
         evidence_relation="supports",
     )
     assert c.evidence_relation == "supports"
+
+
+def test_claim_candidate_split_relation_fields():
+    c = ClaimCandidate(
+        subject="FEME",
+        predicate="uses",
+        object="PostgreSQL",
+        claim_text="FEME uses PostgreSQL.",
+        support_relation="corroborates",
+        evidence_kind="inference",
+        evidence_relation="corroborates",
+    )
+    assert c.support_relation == "corroborates"
+    assert c.evidence_kind == "inference"
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +116,42 @@ def test_custom_evidence_relation_persisted(tmp_path: Path):
     assert len(links) > 0
     for link in links:
         assert link["evidence_relation"] == "corroborates_fact"
+        assert link["evidence_kind"] == "unknown"
+
+
+def test_evidence_kind_persisted_separately_from_support_relation(tmp_path: Path):
+    db = _db(tmp_path)
+    evidence_id = _ingest(db, "FEME uses PostgreSQL as its backing store.")
+
+    candidates = extract_candidates_for_evidence(
+        db,
+        evidence_id,
+        extractor_mode="json_strict",
+        extractor_provider="json_static",
+        extractor_config={
+            "claims": [
+                {
+                    "subject": "FEME",
+                    "predicate": "uses",
+                    "object": "PostgreSQL",
+                    "claim_text": "FEME uses PostgreSQL as its backing store.",
+                    "support_char_start": 0,
+                    "support_char_end": 42,
+                    "support_relation": "supports",
+                    "evidence_kind": "inference",
+                }
+            ]
+        },
+    )
+    governor = MemoryWriteGovernor(db)
+    for c in candidates:
+        c.evidence_id = evidence_id
+        governor.commit_candidate(c)
+
+    links = _link_rows(db, evidence_id)
+    assert len(links) == 1
+    assert links[0]["evidence_relation"] == "supports"
+    assert links[0]["evidence_kind"] == "inference"
 
 
 def test_multiple_candidates_different_relations(tmp_path: Path):
@@ -135,6 +187,7 @@ def test_evidence_relation_column_exists_after_init(tmp_path: Path):
         ).fetchall()
     columns = [row["name"] for row in info]
     assert "evidence_relation" in columns
+    assert "evidence_kind" in columns
 
 
 def test_evidence_relation_column_default_unknown(tmp_path: Path):

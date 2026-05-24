@@ -163,6 +163,57 @@ def test_answer_scaffold_warns_on_pending_review(tmp_path: Path):
     assert "review" in warning_text
 
 
+def test_answer_scaffold_warns_on_inference_derived_support(tmp_path: Path):
+    db = _db(tmp_path)
+    evidence = EvidenceIngestor(db).ingest_text(
+        "A manual summary suggests PostgreSQL is the likely canonical database.",
+        source_type="official_record",
+        project_id="p-inference-warning",
+    )
+    candidates = extract_candidates_for_evidence(
+        db,
+        evidence["evidence_id"],
+        extractor_mode="json_strict",
+        extractor_provider="json_static",
+        extractor_config={
+            "claims": [
+                {
+                    "subject": "PostgreSQL",
+                    "predicate": "is_likely",
+                    "object": "canonical database",
+                    "claim_text": "A manual summary suggests PostgreSQL is the likely canonical database.",
+                    "support_char_start": 0,
+                    "support_char_end": 68,
+                    "support_relation": "supports",
+                    "evidence_kind": "inference",
+                }
+            ]
+        },
+    )
+    assert candidates
+    for candidate in candidates:
+        MemoryWriteGovernor(db).commit_candidate(candidate, project_id="p-inference-warning")
+
+    with db.connect() as con:
+        con.execute(
+            "UPDATE evidence_sources SET review_status = 'active' WHERE id = ?",
+            (evidence["evidence_id"],),
+        )
+        con.execute(
+            "UPDATE memory_claims SET status = 'active' WHERE project_id = ?",
+            ("p-inference-warning",),
+        )
+        con.commit()
+
+    scaffold = GroundedAnswerBuilder(db).build_scaffold(
+        "What database should we use?",
+        project_id="p-inference-warning",
+        include_pending_review=False,
+    )
+    warning_text = "\n".join(scaffold["warnings"]).lower()
+    assert "inference-derived" in warning_text
+
+
 def test_pending_review_creation_writes_review_action(tmp_path: Path):
     db = _db(tmp_path)
     claim_id = _ingest_review_required_claim(db, project_id="p-review-action")

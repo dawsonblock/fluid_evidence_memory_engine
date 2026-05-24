@@ -38,7 +38,8 @@ Return ONLY valid JSON matching the claim-extraction-v1 schema:
       "support_char_start": <int>,
       "support_char_end": <int>,
       "support_quote_text": "<exact verbatim substring>",
-      "evidence_relation": "direct|inference|summary|unknown",
+            "support_relation": "supports|contradicts|corroborates|other support label",
+            "evidence_kind": "direct|inference|summary|unknown",
       "confidence": <0.0-1.0>,
       "memory_type": "project_decision|evidence_claim|inference|correction|unknown"
     }
@@ -46,6 +47,9 @@ Return ONLY valid JSON matching the claim-extraction-v1 schema:
 }
 All char offsets are 0-based character positions into the supplied chunk text.
 support_quote_text MUST be the exact verbatim substring chunk_text[support_char_start:support_char_end].
+support_relation describes how the evidence link should be labeled.
+evidence_kind describes whether the claim is direct evidence, inference, summary, or unknown.
+Do not emit legacy evidence_relation unless explicitly asked for backward compatibility.
 Return an empty claims list when no claims can be extracted.
 """
 

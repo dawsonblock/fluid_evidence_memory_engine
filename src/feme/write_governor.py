@@ -257,8 +257,8 @@ class MemoryWriteGovernor:
                 active_con.execute(
                     """
                     INSERT INTO claim_evidence_links
-                    (id, claim_id, evidence_id, chunk_id, span_id, support_type, confidence, evidence_relation, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, claim_id, evidence_id, chunk_id, span_id, support_type, confidence, evidence_relation, evidence_kind, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new_id("link"),
@@ -269,6 +269,7 @@ class MemoryWriteGovernor:
                         "supports",
                         candidate.confidence,
                         candidate.evidence_relation,
+                        candidate.evidence_kind,
                         now,
                     ),
                 )
@@ -346,8 +347,8 @@ class MemoryWriteGovernor:
                 active_con.execute(
                     """
                     INSERT INTO claim_evidence_links
-                    (id, claim_id, evidence_id, chunk_id, span_id, support_type, confidence, evidence_relation, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, claim_id, evidence_id, chunk_id, span_id, support_type, confidence, evidence_relation, evidence_kind, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new_id("link"),
@@ -358,6 +359,7 @@ class MemoryWriteGovernor:
                         "corroborates",
                         candidate.confidence,
                         candidate.evidence_relation,
+                        candidate.evidence_kind,
                         now,
                     ),
                 )

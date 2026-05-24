@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS claim_evidence_links (
     support_type TEXT NOT NULL DEFAULT 'supports',
     confidence DOUBLE PRECISION NOT NULL DEFAULT 0.5,
     evidence_relation TEXT NOT NULL DEFAULT 'unknown',
+    evidence_kind TEXT NOT NULL DEFAULT 'unknown',
     created_at TEXT NOT NULL
 );
 

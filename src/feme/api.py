@@ -6,6 +6,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
 
+from . import __version__
 from .claim_extractor import extract_candidates_for_evidence
 from .config import get_settings
 from .extractors import build_default_registry
@@ -35,7 +36,7 @@ from .claim_canonicalizer import ClaimCanonicalizer
 from .retrieval_eval_suite import RetrievalEvalSuite
 from .runtime import make_database, runtime_health
 
-app = FastAPI(title="Fluid Evidence Memory Engine", version="1.0.0")
+app = FastAPI(title="Fluid Evidence Memory Engine", version=__version__)
 settings = get_settings()
 database = make_database()
 database.init()
@@ -304,7 +305,7 @@ class EvalCaseRequest(BaseModel):
 def health():
     return {
         "status": "ok",
-        "version": "0.7.5",
+        "version": __version__,
         "db_backend": settings.db_backend,
         "db_path": getattr(database, "path", settings.db_path),
         "runtime": runtime_health(database),

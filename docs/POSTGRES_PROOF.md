@@ -1,4 +1,4 @@
-# PostgreSQL Proof - FEME v0.7.6
+# PostgreSQL Proof - FEME v0.8.0
 
 ## Environment
 
@@ -38,8 +38,8 @@ python -m pytest -q tests/test_v07_postgres_live_integration.py \
   | tee docs/proof/postgres_v0_7_6.txt
 ```
 
-This proves Docker-backed Postgres integration for the included test suite.
-It does not prove high-concurrency production load behavior.
+FEME v0.8.0 includes prior Docker-backed Postgres proof artifacts.
+The included proof verifies the bundled integration suite; it does not prove production-scale behavior.
 
 Postgres proof artifact is included at `docs/proof/postgres_v0_7_6.txt`. This
 proves the included Docker-backed integration suite. It does not prove
@@ -68,6 +68,6 @@ In this workspace, Postgres live proof may skip when `psycopg` and DSN are not c
 
 ## Notes
 
-Docker-backed Postgres integration proof passed in prior runs and remains required for v0.7.5 release evidence capture.
+Docker-backed Postgres integration proof passed in prior runs and remains part of the v0.8.0 release evidence set.
 
 High-concurrency/load behavior is not yet claimed production-grade and still requires expanded validation.

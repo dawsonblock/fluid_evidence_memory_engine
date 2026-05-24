@@ -28,10 +28,12 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ..claim_extractor import extract_candidates_for_evidence
 from ..db import Database
 from ..evidence import EvidenceIngestor
 from ..retrieval import RetrievalPlanner
 from ..utils import json_loads
+from ..write_governor import MemoryWriteGovernor
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -106,6 +108,15 @@ def evaluate_retrieval_fixture(
                     source_type=source_type,
                     project_id=project_id,
                 )
+                if not result.get("duplicate"):
+                    governor = MemoryWriteGovernor(db)
+                    candidates = extract_candidates_for_evidence(
+                        db,
+                        result["evidence_id"],
+                        extractor_mode=extractor_mode,
+                    )
+                    for candidate in candidates:
+                        governor.commit_candidate(candidate, project_id=project_id)
                 if doc_review_status == "active":
                     active_evidence_ids.append(result["evidence_id"])
 

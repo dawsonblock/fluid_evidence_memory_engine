@@ -8,7 +8,7 @@ from .utils import now_iso
 
 ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "postgres_schema.sql"
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "postgres_schema.sql"
-POSTGRES_SCHEMA_VERSION = "0.7.5"
+POSTGRES_SCHEMA_VERSION = "0.8.0"
 
 
 class PostgresDependencyError(RuntimeError):

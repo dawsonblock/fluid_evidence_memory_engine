@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.0 — Structured Extraction + Evaluation
+
+- Realigned the public release identity to `0.8.0` across package, API, and schema reporting.
+- Added structured claim extraction schema validation with strict fail-closed behavior for malformed payloads.
+- Added an LLM JSON extractor provider shell and provider registry wiring.
+- Split extraction semantics into `support_relation` and `evidence_kind` while preserving backward-compatible `evidence_relation` ingestion.
+- Added an extractor repair loop for malformed structured output.
+- Added extraction evaluation fixtures and baseline metrics via `feme eval-extraction`.
+- Added retrieval evaluation CLI support via `feme eval-retrieval`.
+- Added semantic embedding provider foundations with an optional sentence-transformers provider.
+- Added embeddings rebuild support and embedding metadata columns for provider-aware rebuilds.
+- Added PostgreSQL load and concurrency smoke test scaffolding alongside the live integration suite.
+- Preserved review-boundary behavior, extractor audit trails, and strict/public retrieval safety defaults.
+
 ## v0.7.6 — Release Hygiene + Postgres Proof Capture
 
 - Cleaned release ZIP packaging: pre-cleanup removes `__pycache__`, `.pyc`, `.pyo`, `.egg-info`, `.DS_Store`, and `._*` before archiving.

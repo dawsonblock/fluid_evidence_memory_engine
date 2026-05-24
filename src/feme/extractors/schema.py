@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+_VALID_EVIDENCE_KINDS = {"direct", "inference", "summary", "unknown"}
+
 CLAIM_EXTRACTION_SCHEMA_VERSION = "claim-extraction-v1"
 
 # Required string fields on every claim entry
@@ -71,7 +73,7 @@ def validate_extraction_payload(
     if not isinstance(claims, list):
         return False, "missing_claims_list"
     if len(claims) == 0:
-        return False, "empty_claims_list"
+        return True, "ok"
 
     for idx, entry in enumerate(claims):
         if not isinstance(entry, dict):
@@ -144,12 +146,24 @@ def validate_extraction_payload(
         if meta is not None and not isinstance(meta, dict):
             return False, f"claim[{idx}]_metadata_not_dict"
 
-        # Validate optional evidence_relation value
-        _VALID_EVIDENCE_RELATIONS = {"direct", "inference", "summary", "unknown"}
+        # Validate optional evidence_kind / evidence_relation values.
+        # evidence_relation is kept as a compatibility alias for older payloads.
+        ev_kind = entry.get("evidence_kind")
+        if ev_kind is not None:
+            if not isinstance(ev_kind, str) or ev_kind not in _VALID_EVIDENCE_KINDS:
+                return False, f"claim[{idx}]_evidence_kind_invalid"
+
         ev_rel = entry.get("evidence_relation")
         if ev_rel is not None:
-            if not isinstance(ev_rel, str) or ev_rel not in _VALID_EVIDENCE_RELATIONS:
+            if not isinstance(ev_rel, str) or not ev_rel.strip():
                 return False, f"claim[{idx}]_evidence_relation_invalid"
+            if ev_kind is None and ev_rel in _VALID_EVIDENCE_KINDS:
+                pass
+
+        support_relation = entry.get("support_relation")
+        if support_relation is not None:
+            if not isinstance(support_relation, str) or not support_relation.strip():
+                return False, f"claim[{idx}]_support_relation_invalid"
 
         # Validate quote aligns with source_text when provided
         if source_text is not None:

@@ -61,13 +61,30 @@ def test_missing_claims_list():
 
 def test_empty_claims_list():
     ok, reason = validate_extraction_payload({"claims": []})
-    assert ok is False
-    assert reason == "empty_claims_list"
+    assert ok is True
+    assert reason == "ok"
 
 
 def test_candidates_key_accepted_as_alias():
     ok, reason = validate_extraction_payload({"candidates": [_valid_claim()]})
     assert ok is True
+
+
+def test_support_relation_and_evidence_kind_are_accepted():
+    payload = _valid_payload()
+    payload["claims"][0]["support_relation"] = "contradicts"
+    payload["claims"][0]["evidence_kind"] = "inference"
+    ok, reason = validate_extraction_payload(payload)
+    assert ok is True
+    assert reason == "ok"
+
+
+def test_legacy_evidence_relation_alias_accepts_non_empty_string():
+    payload = _valid_payload()
+    payload["claims"][0]["evidence_relation"] = "corroborates_fact"
+    ok, reason = validate_extraction_payload(payload)
+    assert ok is True
+    assert reason == "ok"
     assert reason == "ok"
 
 

@@ -78,8 +78,8 @@ class GroundedAnswerBuilder:
             if item.get("kind") != "claim":
                 continue
             for ev in item.get("supporting_evidence") or []:
-                er = ev.get("evidence_relation")
-                if er in {"inference", "summary"}:
+                evidence_kind = ev.get("evidence_kind") or ev.get("evidence_relation")
+                if evidence_kind in {"inference", "summary"}:
                     saw_inference = True
                     break
             if saw_inference:

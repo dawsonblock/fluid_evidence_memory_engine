@@ -71,6 +71,11 @@ def test_basic_memory_cases_top_k_default():
     assert result["top_k"] == 10
 
 
+def test_basic_memory_cases_quote_hit_rate_is_perfect():
+    result = evaluate_retrieval_fixture(_fixture("basic_memory_cases.jsonl"))
+    assert result["quote_hit_rate"] == 1.0
+
+
 # ---------------------------------------------------------------------------
 # review_boundary_cases.jsonl
 # ---------------------------------------------------------------------------
@@ -92,6 +97,11 @@ def test_review_boundary_cases_query_count():
 def test_citation_span_cases_case_count():
     result = evaluate_retrieval_fixture(_fixture("citation_span_cases.jsonl"))
     assert result["case_count"] == 2
+
+
+def test_citation_span_cases_quote_hit_rate_is_perfect():
+    result = evaluate_retrieval_fixture(_fixture("citation_span_cases.jsonl"))
+    assert result["quote_hit_rate"] == 1.0
 
 
 # ---------------------------------------------------------------------------

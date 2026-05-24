@@ -115,6 +115,8 @@ class ClaimCandidate(BaseModel):
     support_token_start: int | None = None
     support_token_end: int | None = None
     support_quote_text: str | None = None
+    support_relation: str = "supports"
+    evidence_kind: str = "unknown"
     evidence_relation: str = "unknown"
     valid_from: str | None = None
     valid_to: str | None = None

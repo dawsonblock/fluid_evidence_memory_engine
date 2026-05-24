@@ -2,7 +2,7 @@
 
 ## 1. Integrate a production structured extractor provider
 
-v0.7.5 adds strict extractor semantics, provider registry wiring, and fail-closed behavior for `json_strict`.
+v0.8.0 establishes strict extractor semantics, provider registry wiring, repair support, and fail-closed behavior for `json_strict`.
 
 Next step: plug in a production structured provider (LLM or rules engine) behind the provider registry while preserving current schema validation and audit metadata.
 
@@ -38,11 +38,11 @@ Test cases should cover:
 - token-budget packing efficiency
 - project isolation
 
-v0.7.5 ships extraction fixture seeds and `feme eval-extraction` for baseline extraction metrics; extend this into broader golden suites.
+v0.8.0 ships extraction fixture seeds plus `feme eval-extraction` and `feme eval-retrieval` for baseline quality metrics; extend this into broader golden suites.
 
-## 5. Strengthen PostgreSQL production readiness (post-v0.7)
+## 5. Strengthen PostgreSQL production readiness (post-v0.8)
 
-v0.7 establishes a verified dual-backend alpha baseline with runnable Postgres runtime paths, live Docker-backed integration tests, and CI coverage.
+v0.8 establishes a verified dual-backend alpha baseline with runnable Postgres runtime paths, live Docker-backed integration tests, and smoke-test scaffolding.
 
 Post-v0.7 priority gaps to close:
 
@@ -52,7 +52,7 @@ Post-v0.7 priority gaps to close:
 
 ## 6. Add stronger embeddings
 
-v0.7.5 introduces an embedding provider interface/registry around hashing embeddings.
+v0.8.0 introduces an embedding provider interface/registry around hashing embeddings with an optional sentence-transformers provider.
 
 Next step: add semantic embedding providers (local or hosted) behind that interface and validate retrieval gains before enabling by default.
 

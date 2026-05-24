@@ -7,7 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from feme.extractors.llm_json import LLMExtractorNotConfiguredError, LLMJsonExtractor
+from feme.extractors.llm_json import (
+    LLMExtractorNotConfiguredError,
+    LLMJsonExtractor,
+    _SYSTEM_PROMPT,
+)
 from feme.extractors.repair import attempt_repair, _strip_code_fence, _try_parse
 
 
@@ -165,6 +169,11 @@ class TestLLMJsonExtractorConfig:
         monkeypatch.setenv("FEME_EXTRACTOR_API_KEY", "env-key")
         extractor = LLMJsonExtractor(api_key="ctor-key")
         assert extractor._api_key == "ctor-key"
+
+    def test_system_prompt_uses_split_relation_fields(self):
+        assert '"support_relation"' in _SYSTEM_PROMPT
+        assert '"evidence_kind"' in _SYSTEM_PROMPT
+        assert 'legacy evidence_relation' in _SYSTEM_PROMPT
 
 
 # ---------------------------------------------------------------------------

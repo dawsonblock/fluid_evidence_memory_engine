@@ -119,6 +119,26 @@ def test_json_strict_quote_mismatch_writes_no_claims(tmp_path: Path):
     assert audit["detail"] in ("support_quote_mismatch", "claim[0]_quote_mismatch")
 
 
+def test_json_strict_valid_empty_output_is_zero_claim_success(tmp_path: Path):
+    db = _db(tmp_path)
+    evidence_id = _ingest(db, "This sentence contains no durable project decision.")
+
+    candidates = extract_candidates_for_evidence(
+        db,
+        evidence_id,
+        extractor_mode="json_strict",
+        extractor_provider="json_static",
+        extractor_config={"claims": []},
+    )
+    assert candidates == []
+    assert _claim_count(db, evidence_id) == 0
+
+    audit = _latest_audit(db, evidence_id)
+    assert audit
+    assert audit["outcome"] == "structured_success"
+    assert int(audit["candidate_count"]) == 0
+
+
 def test_json_with_fallback_uses_heuristic_when_provider_missing(tmp_path: Path):
     db = _db(tmp_path)
     evidence_id = _ingest(db, "FEME must use PostgreSQL as canonical memory.")

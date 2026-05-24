@@ -149,6 +149,11 @@ class RetrievalPlanner:
                     "SELECT claim_id, COUNT(*) AS n FROM claim_evidence_links GROUP BY claim_id"
                 )
             }
+            support_quotes: dict[str, str] = {}
+            for row in con.execute(
+                "SELECT claim_id, quote_text FROM claim_support_spans ORDER BY created_at DESC"
+            ).fetchall():
+                support_quotes.setdefault(row["claim_id"], row["quote_text"])
         if _is_postgres(self.db):
             keyword_ids = {
                 r["id"]: max(0.0, min(1.0, float(r["pg_rank"]))) for r in fts_rows
@@ -207,6 +212,7 @@ class RetrievalPlanner:
                             "confidence": row["confidence"],
                             "source_quality": row["source_quality"],
                             "support_count": support_counts.get(row["id"], 0),
+                            "support_quote_text": support_quotes.get(row["id"]),
                             "backend": backend,
                             "search_mode": search_mode,
                         },
@@ -324,6 +330,7 @@ class RetrievalPlanner:
                             "source_quality": row["source_quality"],
                             "source_type": row["source_type"],
                             "title": row["title"],
+                            "support_quote_text": row["text"],
                             "backend": backend,
                             "search_mode": search_mode,
                         },

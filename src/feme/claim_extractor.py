@@ -186,7 +186,7 @@ def _extract_candidates_with_status(
                     extractor_provider="heuristic",
                 )
                 return heuristic, HEURISTIC_FALLBACK, invalid_reason
-            if structured:
+            if invalid_reason is None:
                 return structured, "structured_success", None
             if strict_mode:
                 return [], STRICT_REJECTED, "invalid_structured_output"
@@ -383,19 +383,27 @@ def _structured_candidates_from_json(
     from .extractors.schema import validate_extraction_payload
 
     entries = _normalize_json_candidates_payload(payload)
-    if not entries:
-        return [], "invalid_json"
-
     out: list[ClaimCandidate] = []
     chunk_text = str(chunk.get("text") or "")
     tokenized = Tokenizer().tokenize(chunk_text)
     invalid_reason: str | None = None
+    valid_empty_payload = False
 
     # Validate the full payload before per-entry processing when it is a dict
     if isinstance(payload, dict):
         ok, schema_reason = validate_extraction_payload(payload, source_text=chunk_text)
         if not ok:
             invalid_reason = schema_reason
+        else:
+            claims = payload.get("claims")
+            if not isinstance(claims, list):
+                claims = payload.get("candidates")
+            valid_empty_payload = isinstance(claims, list) and len(claims) == 0
+
+    if not entries:
+        if valid_empty_payload:
+            return [], None
+        return [], "invalid_json"
 
     for entry in entries:
         candidate, reason = _candidate_from_structured_json(
@@ -447,10 +455,23 @@ def _candidate_from_structured_json(
     if not (subject and predicate and obj and claim_text):
         return None, "invalid_schema"
 
-    _VALID_EVIDENCE_RELATIONS = {"direct", "inference", "summary", "unknown"}
-    evidence_relation: str = entry.get("evidence_relation", "unknown")  # type: ignore[assignment]
-    if not isinstance(evidence_relation, str) or evidence_relation not in _VALID_EVIDENCE_RELATIONS:
-        evidence_relation = "unknown"
+    _VALID_EVIDENCE_KINDS = {"direct", "inference", "summary", "unknown"}
+    evidence_kind = entry.get("evidence_kind", "unknown")
+    support_relation = entry.get("support_relation", "supports")
+    legacy_relation = entry.get("evidence_relation")
+
+    if isinstance(legacy_relation, str) and legacy_relation in _VALID_EVIDENCE_KINDS:
+        if "evidence_kind" not in entry:
+            evidence_kind = legacy_relation
+    elif isinstance(legacy_relation, str) and legacy_relation.strip():
+        if "support_relation" not in entry:
+            support_relation = legacy_relation
+
+    if not isinstance(evidence_kind, str) or evidence_kind not in _VALID_EVIDENCE_KINDS:
+        evidence_kind = "unknown"
+    if not isinstance(support_relation, str) or not support_relation.strip():
+        support_relation = "supports"
+    evidence_relation = support_relation
 
     char_start, char_end, span_reason = _read_char_span(entry, chunk_text)
     if char_start is None or char_end is None:
@@ -504,6 +525,9 @@ def _candidate_from_structured_json(
             "support_token_start": support_token_start_abs,
             "support_token_end": support_token_end_abs,
             "support_quote_text": quote_text,
+            "support_relation": support_relation,
+            "evidence_kind": evidence_kind,
+            "evidence_relation": evidence_relation,
         }
     )
 
@@ -550,6 +574,8 @@ def _candidate_from_structured_json(
             support_token_start=support_token_start_abs,
             support_token_end=support_token_end_abs,
             support_quote_text=quote_text,
+            support_relation=support_relation,
+            evidence_kind=evidence_kind,
             evidence_relation=evidence_relation,
             metadata=metadata,
         ),
@@ -754,6 +780,8 @@ def _sentence_to_candidate(
         support_token_start=support_token_start_abs,
         support_token_end=support_token_end_abs,
         support_quote_text=sentence,
+        support_relation="supports",
+        evidence_kind="unknown",
         metadata={
             "extractor": "heuristic-v2",
             "extractor_provider": extractor_provider,
@@ -765,6 +793,9 @@ def _sentence_to_candidate(
             "support_token_start": support_token_start_abs,
             "support_token_end": support_token_end_abs,
             "support_quote_text": sentence,
+            "support_relation": "supports",
+            "evidence_kind": "unknown",
+            "evidence_relation": "supports",
         },
     )
 

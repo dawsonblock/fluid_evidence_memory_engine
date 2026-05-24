@@ -7,6 +7,8 @@
 
 Token-anchored, claim-based long-context memory with strict evidence provenance, review governance, and dual runtime support (SQLite + PostgreSQL).
 
+FEME v0.8.0 is a governed evidence-memory alpha with structured extraction and retrieval evaluation foundations. It is not production-grade yet.
+
 > Raw sources are authoritative. Claims are structured interpretations. Summaries are disposable. Embeddings are retrieval helpers only.
 
 ## Jump To
@@ -338,6 +340,8 @@ tests/
 
 ## Current Status
 
+FEME v0.8.0 is a governed evidence-memory alpha with structured extraction and retrieval evaluation foundations. It is not production-grade yet.
+
 Implemented:
 
 - Runnable SQLite and PostgreSQL backend paths
@@ -346,18 +350,23 @@ Implemented:
 - Ledger append serialization and append-only protections
 - Duplicate evidence collision hardening with concurrency test coverage
 - Live PostgreSQL integration test suite and CI wiring (dual-backend alpha proof)
-- Strict extractor semantics: `json_strict` fails closed, pluggable provider registry with `json_static` and `llm_stub` built-ins
+- Strict extractor semantics: `json_strict` fails closed, with pluggable provider registry and LLM JSON provider shell
+- Structured extraction contract split into `support_relation` and `evidence_kind`, with backward-compatible legacy `evidence_relation` handling
 - Enriched extraction audit metadata (provider version, schema version, strict/fallback flags, config hash)
 - `FEME_REQUIRE_EXTRACTOR_AUDIT` policy for fail-closed audit enforcement
-- Embedding provider interface and registry (`HashingEmbeddingProvider` default, pgvector probe)
-- Extraction quality evaluation harness (`feme eval-extraction`, fixture seeds)
+- Extraction quality evaluation harness (`feme eval-extraction`, fixture seeds, repair-loop coverage)
+- Retrieval evaluation harness (`feme eval-retrieval`, public/internal fixture coverage)
+- Embedding provider interface and registry (`HashingEmbeddingProvider` default, optional sentence-transformers provider)
+- Embedding rebuild CLI and provider-aware embedding metadata columns
+- PostgreSQL load/concurrency smoke test scaffolding in addition to live integration coverage
 
 Still evolving:
 
 - Broader adapter abstraction adoption across remaining modules
 - Deeper authz and multi-tenant isolation controls
-- Stronger production backup/restore automation (v0.7 documents explicit pg_dump/export workflow)
-- Higher-fidelity extraction and embedding backends (plug in a production LLM provider behind the registry)
+- Stronger production backup/restore automation
+- Higher-fidelity extractor quality, quote accuracy, and semantic retrieval thresholds
+- Stable backend contract and deployment-readiness hardening
 
 ---
 
