@@ -195,6 +195,14 @@ Run release hardening plus the full test suite in one command:
 bash scripts/test-all.sh
 ```
 
+CI jobs in `.github/workflows/test.yml`:
+
+- `sqlite`: full default `pytest -q` suite.
+- `release-hardening`: focused release guardrails via `bash scripts/test-release-hardening.sh`.
+- `test-all`: local-equivalent unified gate via `bash scripts/test-all.sh`.
+- `postgres-live`: live Postgres integration coverage (`tests/test_v07_postgres_live_integration.py`).
+- Manual run: use GitHub Actions `workflow_dispatch` on the `test` workflow to trigger all jobs on demand.
+
 Run live PostgreSQL tests through Docker Compose:
 
 ```bash
