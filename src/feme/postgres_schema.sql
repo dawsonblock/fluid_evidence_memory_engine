@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS embeddings (
     owner_id TEXT NOT NULL,
     vector_json TEXT NOT NULL,
     model TEXT NOT NULL DEFAULT 'hashing-embedding-v1',
+    provider TEXT NOT NULL DEFAULT 'hashing',
+    dimensions INTEGER NOT NULL DEFAULT 256,
+    config_hash TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 

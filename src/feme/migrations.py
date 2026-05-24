@@ -234,20 +234,6 @@ class MigrationManager:
                     applied=applied,
                 )
 
-            _v16_sql = (
-                V16_POSTGRES_EVIDENCE_KIND_SQL
-                if backend == "postgres"
-                else V16_EVIDENCE_KIND_SQL
-            )
-            if self._try_executescript(con, _v16_sql):
-                self._record_migration(
-                    con,
-                    migration_id="016_evidence_kind",
-                    name="v0.8 evidence_kind label on claim_evidence_links",
-                    checksum=hashlib.sha256(_v16_sql.encode("utf-8")).hexdigest(),
-                    applied=applied,
-                )
-
             if backend == "postgres":
                 con.executescript(V08_POSTGRES_LEDGER_IMMUTABLE_SQL)
                 self._record_migration(
@@ -322,7 +308,18 @@ class MigrationManager:
                 if backend == "postgres"
                 else V14_EVIDENCE_RELATION_SQL
             )
-            if self._try_executescript(con, _v14_sql):
+            v14_applied = self._try_executescript(con, _v14_sql)
+            if (
+                not v14_applied
+                and backend == "sqlite"
+                and self._sqlite_column_exists(
+                    con,
+                    "claim_evidence_links",
+                    "evidence_relation",
+                )
+            ):
+                v14_applied = True
+            if v14_applied:
                 self._record_migration(
                     con,
                     migration_id="014_evidence_relation",
@@ -336,12 +333,40 @@ class MigrationManager:
                 if backend == "postgres"
                 else V15_EMBEDDINGS_PROVIDER_COLUMNS_SQL
             )
-            if self._try_executescript(con, _v15_sql):
+            v15_applied = self._try_executescript(con, _v15_sql)
+            if not v15_applied and backend == "sqlite":
+                v15_applied = all(
+                    self._sqlite_column_exists(con, "embeddings", column)
+                    for column in ("provider", "dimensions", "config_hash")
+                )
+            if v15_applied:
                 self._record_migration(
                     con,
                     migration_id="015_embeddings_provider_columns",
                     name="v0.9 embeddings provider/dimensions/config_hash columns",
                     checksum=hashlib.sha256(_v15_sql.encode("utf-8")).hexdigest(),
+                    applied=applied,
+                )
+
+            _v16_sql = (
+                V16_POSTGRES_EVIDENCE_KIND_SQL
+                if backend == "postgres"
+                else V16_EVIDENCE_KIND_SQL
+            )
+            if backend == "sqlite":
+                v16_applied = self._sqlite_column_exists(
+                    con,
+                    "claim_evidence_links",
+                    "evidence_kind",
+                )
+            else:
+                v16_applied = self._try_executescript(con, _v16_sql)
+            if v16_applied:
+                self._record_migration(
+                    con,
+                    migration_id="016_evidence_kind",
+                    name="v0.8 evidence_kind label on claim_evidence_links",
+                    checksum=hashlib.sha256(_v16_sql.encode("utf-8")).hexdigest(),
                     applied=applied,
                 )
 
@@ -376,6 +401,18 @@ class MigrationManager:
             # Do not block startup for legacy databases that already contain
             # duplicates; ingestion still performs best-effort dedup checks.
             return False
+
+    @staticmethod
+    def _sqlite_column_exists(con, table_name: str, column_name: str) -> bool:
+        try:
+            rows = con.execute(f"PRAGMA table_info({table_name})").fetchall()
+        except Exception:
+            return False
+        for row in rows:
+            name = row["name"] if hasattr(row, "keys") else row[1]
+            if str(name) == column_name:
+                return True
+        return False
 
     def list_applied(self) -> list[dict]:
         with self.db.connect() as con:

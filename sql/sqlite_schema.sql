@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS embeddings (
     owner_id TEXT NOT NULL,
     vector_json TEXT NOT NULL,
     model TEXT NOT NULL DEFAULT 'hashing-embedding-v1',
+    provider TEXT NOT NULL DEFAULT 'hashing',
+    dimensions INTEGER NOT NULL DEFAULT 256,
+    config_hash TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 
@@ -124,6 +127,7 @@ CREATE TABLE IF NOT EXISTS claim_evidence_links (
     support_type TEXT NOT NULL DEFAULT 'supports',
     confidence REAL NOT NULL DEFAULT 0.5,
     evidence_relation TEXT NOT NULL DEFAULT 'unknown',
+    evidence_kind TEXT NOT NULL DEFAULT 'unknown',
     created_at TEXT NOT NULL
 );
 
@@ -225,6 +229,7 @@ CREATE TABLE IF NOT EXISTS evaluation_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_evidence_project ON evidence_sources(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_evidence_project_sha_unique ON evidence_sources(project_id, sha256);
 CREATE INDEX IF NOT EXISTS idx_claims_project_status ON memory_claims(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_claims_subject_predicate ON memory_claims(subject, predicate);
 CREATE INDEX IF NOT EXISTS idx_chunks_evidence ON text_chunks(evidence_id);

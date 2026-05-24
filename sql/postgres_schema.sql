@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS embeddings (
     owner_id TEXT NOT NULL,
     vector_json TEXT NOT NULL,
     model TEXT NOT NULL DEFAULT 'hashing-embedding-v1',
+    provider TEXT NOT NULL DEFAULT 'hashing',
+    dimensions INTEGER NOT NULL DEFAULT 256,
+    config_hash TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 
@@ -151,6 +154,7 @@ CREATE TABLE IF NOT EXISTS claim_evidence_links (
     support_type TEXT NOT NULL DEFAULT 'supports',
     confidence DOUBLE PRECISION NOT NULL DEFAULT 0.5,
     evidence_relation TEXT NOT NULL DEFAULT 'unknown',
+    evidence_kind TEXT NOT NULL DEFAULT 'unknown',
     created_at TEXT NOT NULL
 );
 

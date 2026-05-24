@@ -28,9 +28,15 @@ def _is_placeholder_dsn(dsn: str) -> bool:
 
 
 def _live_postgres_dsn() -> str:
-    dsn = os.getenv("FEME_DB")
+    dsn = (
+        os.getenv("FEME_DB")
+        or os.getenv("FEME_POSTGRES_DSN")
+        or os.getenv("DATABASE_URL")
+    )
     if not dsn:
-        pytest.skip("set FEME_DB to run postgres smoke tests")
+        pytest.skip(
+            "set FEME_DB or FEME_POSTGRES_DSN (or DATABASE_URL) to run postgres smoke tests"
+        )
     if not dsn.startswith(("postgres://", "postgresql://")):
         pytest.skip("FEME_DB must be a PostgreSQL DSN for postgres smoke tests")
     if _is_placeholder_dsn(dsn):
