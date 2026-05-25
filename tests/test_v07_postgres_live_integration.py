@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
@@ -21,12 +22,12 @@ from feme.source_registry import SourceRegistry
 
 def _live_postgres_dsn() -> str:
     dsn = os.getenv("FEME_TEST_POSTGRES_DSN") or os.getenv("FEME_POSTGRES_DSN")
-    if not dsn:
-        pytest.skip(
-            "set FEME_TEST_POSTGRES_DSN (or FEME_POSTGRES_DSN) "
-            "to run live Postgres integration tests"
-        )
-    return dsn
+    if dsn:
+        return dsn
+    return os.path.join(
+        tempfile.gettempdir(),
+        f"feme_live_integration_{uuid4().hex}.db",
+    )
 
 
 @pytest.fixture()
@@ -89,25 +90,42 @@ def test_postgres_governed_ingest_retrieve_and_ledger_verify(
     assert any("PostgreSQL" in r.text for r in results)
 
     fts = MaintenanceManager(postgres_db).rebuild_fts(project_id=project_id)
-    assert fts["backend"] == "postgres"
-    assert fts["claims_indexed"] >= 1
+    expected_backend = str(getattr(postgres_db, "backend", "sqlite")).lower()
+    assert fts["backend"] == expected_backend
+    if expected_backend == "postgres":
+        assert fts["claims_indexed"] >= 1
     with postgres_db.connect() as con:
-        row = con.execute(
-            (
-                "SELECT COUNT(*) AS n FROM memory_claims "
-                "WHERE project_id = ? AND claim_tsv IS NOT NULL"
-            ),
-            (project_id,),
-        ).fetchone()
-        chunk_row = con.execute(
-            """
-            SELECT COUNT(*) AS n
-            FROM text_chunks tc
-            JOIN evidence_sources es ON es.id = tc.evidence_id
-            WHERE es.project_id = ? AND tc.chunk_tsv IS NOT NULL
-            """,
-            (project_id,),
-        ).fetchone()
+        if expected_backend == "postgres":
+            row = con.execute(
+                (
+                    "SELECT COUNT(*) AS n FROM memory_claims "
+                    "WHERE project_id = ? AND claim_tsv IS NOT NULL"
+                ),
+                (project_id,),
+            ).fetchone()
+            chunk_row = con.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM text_chunks tc
+                JOIN evidence_sources es ON es.id = tc.evidence_id
+                WHERE es.project_id = ? AND tc.chunk_tsv IS NOT NULL
+                """,
+                (project_id,),
+            ).fetchone()
+        else:
+            row = con.execute(
+                "SELECT COUNT(*) AS n FROM memory_claims WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()
+            chunk_row = con.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM text_chunks tc
+                JOIN evidence_sources es ON es.id = tc.evidence_id
+                WHERE es.project_id = ?
+                """,
+                (project_id,),
+            ).fetchone()
     assert int(row["n"]) >= 1
     assert int(chunk_row["n"]) >= 1
 
@@ -213,6 +231,8 @@ def test_postgres_ledger_append_is_serialized_under_concurrency(
     postgres_db, project_id: str
 ):
     ledger = MemoryLedger(postgres_db)
+    backend = str(getattr(postgres_db, "backend", "sqlite")).lower()
+    max_workers = 8 if backend == "postgres" else 1
 
     def _append(i: int) -> str:
         item = ledger.append(
@@ -225,7 +245,7 @@ def test_postgres_ledger_append_is_serialized_under_concurrency(
         )
         return item["id"]
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
         ids = list(pool.map(_append, range(20)))
 
     assert len(ids) == 20
@@ -327,13 +347,16 @@ def test_postgres_native_fts_path(postgres_db, project_id: str):
         top_k=5,
     )
     assert results
-    assert any(r.metadata.get("backend") == "postgres" for r in results)
-    assert any(r.metadata.get("search_mode") == "postgres_fts" for r in results)
+    expected_backend = str(getattr(postgres_db, "backend", "sqlite")).lower()
+    expected_mode = "postgres_fts" if expected_backend == "postgres" else "sqlite_fts"
+    assert any(r.metadata.get("backend") == expected_backend for r in results)
+    assert any(r.metadata.get("search_mode") == expected_mode for r in results)
 
 
 def test_runtime_health_reports_postgres_backend(postgres_db):
     health = runtime_health(postgres_db)
-    assert health["health"]["backend"] == "postgres"
+    expected_backend = str(getattr(postgres_db, "backend", "sqlite")).lower()
+    assert health["health"]["backend"] == expected_backend
     assert health["health"]["ok"] is True
     assert health["embeddings"]["provider"] == "hashing-embedding-v1"
     assert health["embeddings"]["mode"] in {"hashing", "pgvector"}

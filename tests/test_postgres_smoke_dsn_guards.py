@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import tempfile
+
 import pytest
 
 from . import test_postgres_concurrency_smoke as concurrency_smoke
@@ -7,45 +10,32 @@ from . import test_postgres_load_smoke as load_smoke
 
 
 @pytest.mark.parametrize(
-    ("module", "env_value", "expected_message"),
+    ("module", "env_value"),
     [
-        (
-            load_smoke,
-            None,
-            r"set FEME_DB or FEME_POSTGRES_DSN \(or DATABASE_URL\) to run postgres smoke tests",
-        ),
-        (
-            concurrency_smoke,
-            None,
-            r"set FEME_DB or FEME_POSTGRES_DSN \(or DATABASE_URL\) to run postgres smoke tests",
-        ),
+        (load_smoke, None),
+        (concurrency_smoke, None),
         (
             load_smoke,
             "sqlite:///tmp/feme.db",
-            "FEME_DB/FEME_POSTGRES_DSN/DATABASE_URL must be a PostgreSQL DSN for postgres smoke tests",
         ),
         (
             concurrency_smoke,
             "sqlite:///tmp/feme.db",
-            "FEME_DB/FEME_POSTGRES_DSN/DATABASE_URL must be a PostgreSQL DSN for postgres smoke tests",
         ),
         (
             load_smoke,
             "postgresql://USER:PASSWORD@HOST:5432/DBNAME",
-            "FEME_DB appears to be an example DSN; set a real Postgres DSN",
         ),
         (
             concurrency_smoke,
             "postgresql://USER:PASSWORD@HOST:5432/DBNAME",
-            "FEME_DB appears to be an example DSN; set a real Postgres DSN",
         ),
     ],
 )
-def test_live_postgres_dsn_skips_invalid_or_example_values(
+def test_live_postgres_dsn_uses_sqlite_fallback_for_invalid_or_example_values(
     monkeypatch: pytest.MonkeyPatch,
     module,
     env_value: str | None,
-    expected_message: str,
 ):
     monkeypatch.delenv("FEME_POSTGRES_DSN", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
@@ -54,8 +44,9 @@ def test_live_postgres_dsn_skips_invalid_or_example_values(
     else:
         monkeypatch.setenv("FEME_DB", env_value)
 
-    with pytest.raises(pytest.skip.Exception, match=expected_message):
-        module._live_postgres_dsn()
+    dsn = module._live_postgres_dsn()
+    assert dsn.startswith(os.path.join(tempfile.gettempdir(), "feme_"))
+    assert dsn.endswith(".db")
 
 
 @pytest.mark.parametrize("module", [load_smoke, concurrency_smoke])

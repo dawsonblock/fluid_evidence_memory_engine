@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
+from types import ModuleType
 
 import pytest
 
@@ -123,26 +125,83 @@ def test_dimensions_custom_default():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not HAS_ST, reason="sentence-transformers not installed")
-def test_embed_text_returns_list_of_floats():
+def _patch_fake_sentence_transformers(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    vector: list[float],
+    embedding_dimension: int | None = None,
+) -> None:
+    real_find_spec = importlib.util.find_spec
+    fake_module = ModuleType("sentence_transformers")
+
+    class _FakeSentenceTransformer:
+        def __init__(self, _model_name: str, **_kwargs):
+            pass
+
+        def encode(self, _text: str, normalize_embeddings: bool = True):
+            values = list(vector)
+            if normalize_embeddings:
+                import math
+
+                norm = math.sqrt(sum(v * v for v in values))
+                if norm:
+                    values = [v / norm for v in values]
+
+            class _Vec(list):
+                def tolist(self):
+                    return list(self)
+
+            return _Vec(values)
+
+        def get_embedding_dimension(self):
+            return embedding_dimension
+
+    fake_module.SentenceTransformer = _FakeSentenceTransformer
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_module)
+
+    def _fake_find_spec(name: str, package=None):
+        if name == "sentence_transformers":
+            return object()
+        return real_find_spec(name, package)
+
+    monkeypatch.setattr(importlib.util, "find_spec", _fake_find_spec)
+
+
+def test_embed_text_returns_list_of_floats(monkeypatch: pytest.MonkeyPatch):
     p = SentenceTransformersEmbeddingProvider()
+    if not HAS_ST:
+        _patch_fake_sentence_transformers(
+            monkeypatch,
+            vector=[0.4, 0.3, 0.2, 0.1],
+            embedding_dimension=4,
+        )
     result = p.embed_text("FEME stores memory in PostgreSQL.")
     assert isinstance(result, list)
     assert all(isinstance(v, float) for v in result)
 
 
-@pytest.mark.skipif(not HAS_ST, reason="sentence-transformers not installed")
-def test_embed_text_returns_correct_dimensions():
-    p = SentenceTransformersEmbeddingProvider()
+def test_embed_text_returns_correct_dimensions(monkeypatch: pytest.MonkeyPatch):
+    p = SentenceTransformersEmbeddingProvider(dimensions=4)
+    if not HAS_ST:
+        _patch_fake_sentence_transformers(
+            monkeypatch,
+            vector=[0.25, 0.25, 0.25, 0.25],
+            embedding_dimension=4,
+        )
     result = p.embed_text("test")
     assert len(result) == p.dimensions
 
 
-@pytest.mark.skipif(not HAS_ST, reason="sentence-transformers not installed")
-def test_normalized_vector_unit_length():
+def test_normalized_vector_unit_length(monkeypatch: pytest.MonkeyPatch):
     import math
 
     p = SentenceTransformersEmbeddingProvider(normalize=True)
+    if not HAS_ST:
+        _patch_fake_sentence_transformers(
+            monkeypatch,
+            vector=[3.0, 4.0, 0.0, 0.0],
+            embedding_dimension=4,
+        )
     vec = p.embed_text("normalization test")
     norm = math.sqrt(sum(v * v for v in vec))
     assert abs(norm - 1.0) < 1e-4
