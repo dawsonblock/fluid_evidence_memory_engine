@@ -139,6 +139,9 @@ def test_build_release_zip_excludes_runtime_databases_in_fallback_path(
     (extracted / "test.sqlite-wal").write_bytes(b"wal")
     (extracted / "test.sqlite-shm").write_bytes(b"shm")
     (extracted / "test.db").write_bytes(b"SQLite format 3\x00db")
+    nested = extracted / "nested"
+    nested.mkdir()
+    (nested / "$DB_PATH").write_bytes(b"SQLite format 3\x00nested")
 
     subprocess.run(
         ["bash", "scripts/build-release-zip.sh"],
@@ -153,6 +156,7 @@ def test_build_release_zip_excludes_runtime_databases_in_fallback_path(
         names = archive.namelist()
 
     assert "$DB_PATH" not in names
+    assert "nested/$DB_PATH" not in names
     assert "test.sqlite" not in names
     assert "test.sqlite-wal" not in names
     assert "test.sqlite-shm" not in names
