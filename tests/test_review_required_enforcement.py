@@ -1,14 +1,15 @@
-from pathlib import Path
-import json
 import importlib
+import json
+from pathlib import Path
 
 import pytest
+
 from feme.answer_builder import GroundedAnswerBuilder
 from feme.claim_extractor import extract_candidates_for_evidence
 from feme.db import Database
 from feme.evidence import EvidenceIngestor
-from feme.review import ReviewQueue
 from feme.retrieval import RetrievalPlanner
+from feme.review import ReviewQueue
 from feme.source_registry import SourceRegistry
 from feme.write_governor import MemoryWriteGovernor
 
@@ -192,7 +193,9 @@ def test_answer_scaffold_warns_on_inference_derived_support(tmp_path: Path):
     )
     assert candidates
     for candidate in candidates:
-        MemoryWriteGovernor(db).commit_candidate(candidate, project_id="p-inference-warning")
+        MemoryWriteGovernor(db).commit_candidate(
+            candidate, project_id="p-inference-warning"
+        )
 
     with db.connect() as con:
         con.execute(

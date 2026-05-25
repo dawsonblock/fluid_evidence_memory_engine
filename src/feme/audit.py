@@ -10,13 +10,15 @@ class AuditReader:
     def recent_writes(self, limit: int = 20) -> list[dict]:
         with self.db.connect() as con:
             rows = con.execute(
-                "SELECT * FROM memory_write_audit ORDER BY created_at DESC LIMIT ?", (limit,)
+                "SELECT * FROM memory_write_audit ORDER BY created_at DESC LIMIT ?",
+                (limit,),
             ).fetchall()
         return rows_to_dicts(rows)
 
     def recent_retrievals(self, limit: int = 20) -> list[dict]:
         with self.db.connect() as con:
             rows = con.execute(
-                "SELECT * FROM retrieval_events ORDER BY created_at DESC LIMIT ?", (limit,)
+                "SELECT * FROM retrieval_events ORDER BY created_at DESC LIMIT ?",
+                (limit,),
             ).fetchall()
         return rows_to_dicts(rows)

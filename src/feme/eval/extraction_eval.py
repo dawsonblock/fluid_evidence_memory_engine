@@ -53,9 +53,7 @@ def evaluate_extraction_fixture(
     for idx, row in enumerate(rows):
         text = str(row.get("text") or "")
         expected_claims = row.get("expected_claims") or []
-        expect_strict_rejection = bool(
-            row.get("expect_strict_rejection", False)
-        )
+        expect_strict_rejection = bool(row.get("expect_strict_rejection", False))
         structured_payload = row.get("structured_payload")
 
         chunk = {
@@ -73,6 +71,7 @@ def evaluate_extraction_fixture(
 
         json_extractor = None
         if isinstance(structured_payload, dict):
+
             def _json_extractor(
                 _text: str,
                 _chunk: dict[str, Any],
@@ -104,9 +103,7 @@ def evaluate_extraction_fixture(
                         "source_text": text,
                         "expected_claims": expected_claims,
                         "actual_claims": _serialize_candidates(candidates),
-                        "expected_support_span": _first_expected_span(
-                            expected_claims
-                        ),
+                        "expected_support_span": _first_expected_span(expected_claims),
                         "actual_support_span": _first_actual_span(candidates),
                         "miss_reason": (
                             None if not candidates else "expected_strict_rejection"
@@ -142,9 +139,7 @@ def evaluate_extraction_fixture(
                     "source_text": text,
                     "expected_claims": expected_claims,
                     "actual_claims": _serialize_candidates(candidates),
-                    "expected_support_span": _first_expected_span(
-                        expected_claims
-                    ),
+                    "expected_support_span": _first_expected_span(expected_claims),
                     "actual_support_span": _first_actual_span(candidates),
                     "miss_reason": _miss_reason(expected_claims, candidates),
                 }

@@ -5,6 +5,7 @@ are passed to _structured_candidates_from_json.  The validator enforces the
 ``claim-extraction-v1`` contract; future schema versions can extend or replace
 this module without touching the core extractor pipeline.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -87,10 +88,9 @@ def validate_extraction_payload(
 
         # Validate required integer span fields (support direct or evidence_span alias)
         evidence_span = entry.get("evidence_span")
-        has_direct_span = (
-            isinstance(entry.get("support_char_start"), int)
-            and isinstance(entry.get("support_char_end"), int)
-        )
+        has_direct_span = isinstance(
+            entry.get("support_char_start"), int
+        ) and isinstance(entry.get("support_char_end"), int)
         has_alias_span = (
             isinstance(evidence_span, dict)
             and isinstance(evidence_span.get("char_start"), int)

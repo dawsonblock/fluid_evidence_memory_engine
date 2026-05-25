@@ -16,7 +16,13 @@ class MemoryConsolidator:
     def __init__(self, db: Database):
         self.db = db
 
-    def create_subject_capsules(self, *, project_id: str = "default", min_claims: int = 2, limit_subjects: int = 50) -> dict:
+    def create_subject_capsules(
+        self,
+        *,
+        project_id: str = "default",
+        min_claims: int = 2,
+        limit_subjects: int = 50,
+    ) -> dict:
         now = now_iso()
         with self.db.connect() as con:
             rows = con.execute(
@@ -40,7 +46,9 @@ class MemoryConsolidator:
                     continue
                 claim_ids = [c["id"] for c in claims[:20]]
                 capsule_text = _summarize_claims(display_subject[key], claims[:12])
-                avg_confidence = sum(float(c["confidence"]) for c in claims[:20]) / min(len(claims), 20)
+                avg_confidence = sum(float(c["confidence"]) for c in claims[:20]) / min(
+                    len(claims), 20
+                )
                 capsule_id = new_id("capsule")
                 con.execute(
                     """
@@ -58,14 +66,18 @@ class MemoryConsolidator:
                         avg_confidence,
                         now,
                         now,
-                        json_dumps({"source": "consolidation-v0.4", "claim_count": len(claims)}),
+                        json_dumps(
+                            {"source": "consolidation-v0.4", "claim_count": len(claims)}
+                        ),
                     ),
                 )
                 created += 1
             con.commit()
         return {"project_id": project_id, "capsules_created": created}
 
-    def list_capsules(self, *, project_id: str = "default", limit: int = 100) -> list[dict]:
+    def list_capsules(
+        self, *, project_id: str = "default", limit: int = 100
+    ) -> list[dict]:
         with self.db.connect() as con:
             rows = con.execute(
                 "SELECT * FROM memory_capsules WHERE project_id = ? ORDER BY updated_at DESC LIMIT ?",
@@ -98,7 +110,15 @@ class MemoryConsolidator:
                         continue
                     con.execute(
                         "INSERT INTO claim_relationships (id, source_claim_id, target_claim_id, relationship_type, confidence, explanation, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        (new_id("rel"), base, other, "duplicate", 0.95, "normalized claim text match", now),
+                        (
+                            new_id("rel"),
+                            base,
+                            other,
+                            "duplicate",
+                            0.95,
+                            "normalized claim text match",
+                            now,
+                        ),
                     )
                     created += 1
             con.commit()
@@ -108,5 +128,7 @@ class MemoryConsolidator:
 def _summarize_claims(subject: str, claims: list[dict]) -> str:
     lines = [f"Subject: {subject}"]
     for c in claims:
-        lines.append(f"- [{c['status']}, conf={float(c['confidence']):.2f}] {c['claim_text']}")
+        lines.append(
+            f"- [{c['status']}, conf={float(c['confidence']):.2f}] {c['claim_text']}"
+        )
     return "\n".join(lines)

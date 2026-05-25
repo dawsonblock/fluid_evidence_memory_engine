@@ -1,16 +1,16 @@
-from feme.postgres_db import (
-    convert_qmark_placeholders,
-    rewrite_sql_for_postgres,
-    split_sql_script,
-)
 from feme.migrations import (
     V07_POSTGRES_NATIVE_FTS_SQL,
     V08_POSTGRES_LEDGER_IMMUTABLE_SQL,
     V09_EVIDENCE_DEDUP_INDEX_SQL,
     V13_EXTRACTOR_AUDIT_SQL,
 )
+from feme.postgres_db import (
+    PostgresDatabase,
+    convert_qmark_placeholders,
+    rewrite_sql_for_postgres,
+    split_sql_script,
+)
 from feme.runtime import make_database
-from feme.postgres_db import PostgresDatabase
 
 
 def test_qmark_translation_skips_string_literals():

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from contextlib import nullcontext
 
 from .db import Database

@@ -21,6 +21,7 @@ Returns per-fixture metrics:
 - stale_claim_suppression: fraction of queries where no stale/superseded
   claims were returned (1.0 when none are found, null when not tracked)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -161,7 +162,9 @@ def evaluate_retrieval_fixture(
                 include_pending_review=include_pending,
             )
             all_claim_texts = " ".join(r.text or "" for r in results_objs).lower()
-            all_quotes = [r.metadata.get("support_quote_text") or "" for r in results_objs]
+            all_quotes = [
+                r.metadata.get("support_quote_text") or "" for r in results_objs
+            ]
             all_statuses = [str(r.metadata.get("status") or "") for r in results_objs]
 
             if results_objs:

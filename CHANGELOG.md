@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.3 — Release Builder Finalization
+
+- Fixed `build-release-zip.sh` cleanup logic so it no longer combines `find -prune` with `-delete`.
+- Added/updated release-builder regression tests.
+- Preserved release ZIP validation for extensionless SQLite artifacts.
+- Preserved v0.8.2 runtime-health migration completeness behavior.
+- Preserved strict extractor fail-closed behavior.
+- Preserved review-boundary and verify-boundary behavior.
+- Preserved retrieval evaluation quote-hit scoring.
+
 ## v0.8.2 — Release Identity + Builder Reliability Repair
 
 - Fixed release packaging to exclude accidental extensionless SQLite database files such as `$DB_PATH`.

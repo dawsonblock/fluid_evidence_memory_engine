@@ -9,7 +9,9 @@ class ProvenanceGraph:
 
     def trace_claim(self, claim_id: str) -> dict:
         with self.db.connect() as con:
-            claim = con.execute("SELECT * FROM memory_claims WHERE id = ?", (claim_id,)).fetchone()
+            claim = con.execute(
+                "SELECT * FROM memory_claims WHERE id = ?", (claim_id,)
+            ).fetchone()
             if not claim:
                 raise KeyError(f"claim not found: {claim_id}")
             links = con.execute(
@@ -31,8 +33,14 @@ class ProvenanceGraph:
                 """,
                 (claim_id, claim_id),
             ).fetchall()
-            reviews = con.execute("SELECT * FROM review_actions WHERE claim_id = ? ORDER BY created_at DESC", (claim_id,)).fetchall()
-            lifecycle = con.execute("SELECT * FROM lifecycle_events WHERE claim_id = ? ORDER BY created_at DESC", (claim_id,)).fetchall()
+            reviews = con.execute(
+                "SELECT * FROM review_actions WHERE claim_id = ? ORDER BY created_at DESC",
+                (claim_id,),
+            ).fetchall()
+            lifecycle = con.execute(
+                "SELECT * FROM lifecycle_events WHERE claim_id = ? ORDER BY created_at DESC",
+                (claim_id,),
+            ).fetchall()
         return {
             "claim": dict(claim),
             "evidence_links": rows_to_dicts(links),

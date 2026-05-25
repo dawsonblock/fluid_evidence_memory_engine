@@ -1,8 +1,8 @@
 from pathlib import Path
 
+from feme.citations import CitationManager
 from feme.claim_extractor import extract_candidates_for_evidence
 from feme.context_builder import ContextBuilder
-from feme.citations import CitationManager
 from feme.db import Database
 from feme.evidence import EvidenceIngestor
 from feme.export_import import ProjectExporter

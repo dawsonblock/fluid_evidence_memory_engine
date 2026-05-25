@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections import Counter
 
 from .db import Database
@@ -25,7 +24,13 @@ class IntegrityChecker:
             for row in snapshots:
                 actual = sha256_text(row["text"])
                 if actual != row["text_sha256"]:
-                    issues.append({"type": "snapshot_hash_mismatch", "evidence_id": row["evidence_id"], "snapshot_id": row["id"]})
+                    issues.append(
+                        {
+                            "type": "snapshot_hash_mismatch",
+                            "evidence_id": row["evidence_id"],
+                            "snapshot_id": row["id"],
+                        }
+                    )
 
             spans = con.execute(
                 """
@@ -38,9 +43,24 @@ class IntegrityChecker:
             ).fetchall()
             for row in spans:
                 if row["text_sha256"] != sha256_text(row["text"]):
-                    issues.append({"type": "span_hash_mismatch", "span_id": row["id"], "chunk_id": row["chunk_id"]})
-                if row["text"] not in row["chunk_text"] and row["chunk_text"] not in row["text"]:
-                    issues.append({"type": "span_chunk_text_mismatch", "span_id": row["id"], "chunk_id": row["chunk_id"]})
+                    issues.append(
+                        {
+                            "type": "span_hash_mismatch",
+                            "span_id": row["id"],
+                            "chunk_id": row["chunk_id"],
+                        }
+                    )
+                if (
+                    row["text"] not in row["chunk_text"]
+                    and row["chunk_text"] not in row["text"]
+                ):
+                    issues.append(
+                        {
+                            "type": "span_chunk_text_mismatch",
+                            "span_id": row["id"],
+                            "chunk_id": row["chunk_id"],
+                        }
+                    )
 
             unsupported = con.execute(
                 """
@@ -52,7 +72,13 @@ class IntegrityChecker:
                 (project_id,),
             ).fetchall()
             for row in unsupported:
-                issues.append({"type": "unsupported_claim", "claim_id": row["id"], "claim_text": row["claim_text"][:160]})
+                issues.append(
+                    {
+                        "type": "unsupported_claim",
+                        "claim_id": row["id"],
+                        "claim_text": row["claim_text"][:160],
+                    }
+                )
 
             missing_embeddings = con.execute(
                 """
@@ -63,7 +89,9 @@ class IntegrityChecker:
                 (project_id,),
             ).fetchall()
             for row in missing_embeddings:
-                issues.append({"type": "missing_claim_embedding", "claim_id": row["id"]})
+                issues.append(
+                    {"type": "missing_claim_embedding", "claim_id": row["id"]}
+                )
 
             duplicate_sources = con.execute(
                 """
@@ -74,7 +102,14 @@ class IntegrityChecker:
                 (project_id,),
             ).fetchall()
             for row in duplicate_sources:
-                issues.append({"type": "duplicate_evidence_sha", "sha256": row["sha256"], "count": row["n"], "evidence_ids": row["ids"]})
+                issues.append(
+                    {
+                        "type": "duplicate_evidence_sha",
+                        "sha256": row["sha256"],
+                        "count": row["n"],
+                        "evidence_ids": row["ids"],
+                    }
+                )
 
             unresolved = con.execute(
                 """
@@ -86,7 +121,13 @@ class IntegrityChecker:
                 (project_id,),
             ).fetchall()
             for row in unresolved:
-                issues.append({"type": "unresolved_contradiction", "claim_id": row["id"], "count": row["n"]})
+                issues.append(
+                    {
+                        "type": "unresolved_contradiction",
+                        "claim_id": row["id"],
+                        "count": row["n"],
+                    }
+                )
 
             by_type = Counter(issue["type"] for issue in issues)
             report = {
@@ -101,7 +142,14 @@ class IntegrityChecker:
             if persist:
                 con.execute(
                     "INSERT INTO integrity_reports (id, project_id, ok, issue_count, report_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                    (new_id("integrity"), project_id, int(report["ok"]), len(issues), json_dumps(report), report["created_at"]),
+                    (
+                        new_id("integrity"),
+                        project_id,
+                        int(report["ok"]),
+                        len(issues),
+                        json_dumps(report),
+                        report["created_at"],
+                    ),
                 )
                 con.commit()
         return report

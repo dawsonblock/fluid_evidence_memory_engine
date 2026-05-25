@@ -1,7 +1,7 @@
+from feme.contradiction import ContradictionEngine
 from feme.db import Database
 from feme.models import ClaimCandidate, MemoryType
 from feme.write_governor import MemoryWriteGovernor
-from feme.contradiction import ContradictionEngine
 
 
 def test_contradiction_marks_disputed(tmp_path):
@@ -34,10 +34,12 @@ def test_contradiction_marks_disputed(tmp_path):
         triviality=0.0,
         short_livedness=0.0,
     )
-    ra = gov.commit_candidate(a)
+    gov.commit_candidate(a)
     rb = gov.commit_candidate(b)
     engine = ContradictionEngine(db)
     engine.scan_new_claim(rb.matched_claim_id)
     with db.connect() as con:
-        count = con.execute("SELECT COUNT(*) AS n FROM memory_contradictions").fetchone()["n"]
+        count = con.execute(
+            "SELECT COUNT(*) AS n FROM memory_contradictions"
+        ).fetchone()["n"]
     assert count >= 1

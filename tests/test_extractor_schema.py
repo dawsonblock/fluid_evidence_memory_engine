@@ -1,4 +1,5 @@
 """Tests for the v0.8 extraction payload schema validator."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,6 +12,7 @@ from feme.extractors.schema import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _valid_claim(**overrides) -> dict:
     base = {
@@ -33,6 +35,7 @@ def _valid_payload(*claims) -> dict:
 # Constants
 # ---------------------------------------------------------------------------
 
+
 def test_schema_version_constant():
     assert CLAIM_EXTRACTION_SCHEMA_VERSION == "claim-extraction-v1"
 
@@ -40,6 +43,7 @@ def test_schema_version_constant():
 # ---------------------------------------------------------------------------
 # Top-level payload validation
 # ---------------------------------------------------------------------------
+
 
 def test_valid_minimal_payload():
     ok, reason = validate_extraction_payload(_valid_payload())
@@ -92,6 +96,7 @@ def test_legacy_evidence_relation_alias_accepts_non_empty_string():
 # Required string field validation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("field", ["subject", "predicate", "object", "claim_text"])
 def test_missing_required_str_field(field: str):
     claim = _valid_claim()
@@ -103,14 +108,18 @@ def test_missing_required_str_field(field: str):
 
 @pytest.mark.parametrize("field", ["subject", "predicate", "object", "claim_text"])
 def test_empty_required_str_field(field: str):
-    ok, reason = validate_extraction_payload(_valid_payload(_valid_claim(**{field: ""})))
+    ok, reason = validate_extraction_payload(
+        _valid_payload(_valid_claim(**{field: ""}))
+    )
     assert ok is False
     assert f"missing_{field}" in reason
 
 
 @pytest.mark.parametrize("field", ["subject", "predicate", "object", "claim_text"])
 def test_whitespace_only_required_str_field(field: str):
-    ok, reason = validate_extraction_payload(_valid_payload(_valid_claim(**{field: "   "})))
+    ok, reason = validate_extraction_payload(
+        _valid_payload(_valid_claim(**{field: "   "}))
+    )
     assert ok is False
     assert f"missing_{field}" in reason
 
@@ -118,6 +127,7 @@ def test_whitespace_only_required_str_field(field: str):
 # ---------------------------------------------------------------------------
 # Char span validation
 # ---------------------------------------------------------------------------
+
 
 def test_missing_support_char_start():
     claim = _valid_claim()
@@ -136,7 +146,9 @@ def test_missing_support_char_end():
 
 
 def test_negative_char_start():
-    ok, reason = validate_extraction_payload(_valid_payload(_valid_claim(support_char_start=-1)))
+    ok, reason = validate_extraction_payload(
+        _valid_payload(_valid_claim(support_char_start=-1))
+    )
     assert ok is False
     assert "support_char_start_negative" in reason
 
@@ -160,6 +172,7 @@ def test_char_end_before_start():
 # ---------------------------------------------------------------------------
 # Token span validation
 # ---------------------------------------------------------------------------
+
 
 def test_valid_token_span():
     claim = _valid_claim(support_token_start=0, support_token_end=8)
@@ -199,33 +212,52 @@ def test_invalid_token_span_range():
 # Optional float field validation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("field", [
-    "confidence", "salience", "user_explicitness", "long_term_usefulness",
-    "project_relevance", "actionability", "contradiction_value",
-    "uncertainty", "triviality", "short_livedness",
-])
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "confidence",
+        "salience",
+        "user_explicitness",
+        "long_term_usefulness",
+        "project_relevance",
+        "actionability",
+        "contradiction_value",
+        "uncertainty",
+        "triviality",
+        "short_livedness",
+    ],
+)
 def test_valid_float_field(field: str):
-    ok, reason = validate_extraction_payload(_valid_payload(_valid_claim(**{field: 0.75})))
+    ok, reason = validate_extraction_payload(
+        _valid_payload(_valid_claim(**{field: 0.75}))
+    )
     assert ok is True
 
 
 @pytest.mark.parametrize("field", ["confidence", "salience"])
 def test_float_field_out_of_range_high(field: str):
-    ok, reason = validate_extraction_payload(_valid_payload(_valid_claim(**{field: 1.5})))
+    ok, reason = validate_extraction_payload(
+        _valid_payload(_valid_claim(**{field: 1.5}))
+    )
     assert ok is False
     assert "out_of_range" in reason
 
 
 @pytest.mark.parametrize("field", ["confidence", "salience"])
 def test_float_field_out_of_range_low(field: str):
-    ok, reason = validate_extraction_payload(_valid_payload(_valid_claim(**{field: -0.1})))
+    ok, reason = validate_extraction_payload(
+        _valid_payload(_valid_claim(**{field: -0.1}))
+    )
     assert ok is False
     assert "out_of_range" in reason
 
 
 @pytest.mark.parametrize("field", ["confidence", "salience"])
 def test_float_field_not_numeric(field: str):
-    ok, reason = validate_extraction_payload(_valid_payload(_valid_claim(**{field: "high"})))
+    ok, reason = validate_extraction_payload(
+        _valid_payload(_valid_claim(**{field: "high"}))
+    )
     assert ok is False
     assert "not_numeric" in reason
 
@@ -238,6 +270,7 @@ def test_float_field_int_value_accepted():
 # ---------------------------------------------------------------------------
 # Optional field type checks
 # ---------------------------------------------------------------------------
+
 
 def test_support_quote_text_not_str():
     ok, reason = validate_extraction_payload(
@@ -272,6 +305,7 @@ def test_metadata_valid():
 # ---------------------------------------------------------------------------
 # Multi-claim payload
 # ---------------------------------------------------------------------------
+
 
 def test_multiple_valid_claims():
     claims = [

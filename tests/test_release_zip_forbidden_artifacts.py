@@ -25,9 +25,7 @@ def test_release_zip_excludes_forbidden_artifacts():
     root = _repo_root()
     version = _project_version(root)
     zip_path = (
-        root
-        / "dist"
-        / f"fluid_evidence_memory_engine_v{version.replace('.', '_')}.zip"
+        root / "dist" / f"fluid_evidence_memory_engine_v{version.replace('.', '_')}.zip"
     )
 
     subprocess.run(
@@ -47,11 +45,7 @@ def test_release_zip_excludes_forbidden_artifacts():
 
     with zipfile.ZipFile(zip_path) as archive:
         bad_entries = [
-            name
-            for name in archive.namelist()
-            if forbidden_pattern.search(name)
+            name for name in archive.namelist() if forbidden_pattern.search(name)
         ]
 
-    assert not bad_entries, (
-        f"forbidden artifacts found in {zip_path}: {bad_entries}"
-    )
+    assert not bad_entries, f"forbidden artifacts found in {zip_path}: {bad_entries}"

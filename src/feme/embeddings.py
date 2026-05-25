@@ -60,7 +60,7 @@ class HashingEmbedder:
 
 class HashingEmbeddingProvider:
     name = "hashing"
-    version = "0.8.2"
+    version = "0.8.3"
 
     def __init__(self, dimensions: int = 256):
         self.dimensions = dimensions
@@ -97,7 +97,7 @@ def embedding_runtime_capabilities(
     return {
         "provider": "hashing-embedding-v1",
         "provider_name": provider.name if provider else "hashing",
-        "provider_version": provider.version if provider else "0.8.2",
+        "provider_version": provider.version if provider else "0.8.3",
         "provider_dimensions": provider.dimensions if provider else 256,
         "pgvector_python_available": pgvector_python_available,
         "pgvector_database_enabled": pgvector_database_enabled,
@@ -145,7 +145,7 @@ class SentenceTransformersEmbeddingProvider:
     """
 
     name = "sentence-transformers"
-    version = "0.8.2"
+    version = "0.8.3"
 
     def __init__(
         self,
@@ -166,10 +166,7 @@ class SentenceTransformersEmbeddingProvider:
         if self._model is not None:
             if hasattr(self._model, "get_embedding_dimension"):
                 return self._model.get_embedding_dimension() or self._dimensions
-            return (
-                self._model.get_sentence_embedding_dimension()
-                or self._dimensions
-            )
+            return self._model.get_sentence_embedding_dimension() or self._dimensions
         return self._dimensions
 
     def _ensure_model(self) -> Any:
@@ -194,4 +191,3 @@ class SentenceTransformersEmbeddingProvider:
         model = self._ensure_model()
         vec = model.encode(text, normalize_embeddings=self._normalize)
         return vec.tolist()
-

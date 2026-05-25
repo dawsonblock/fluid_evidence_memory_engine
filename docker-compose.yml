@@ -2,7 +2,7 @@ services:
   feme-api:
     build: .
     ports:
-      - "8000:8000"
+      - 8000:8000
     environment:
       FEME_DB_BACKEND: sqlite
       FEME_DB_PATH: /data/memory.db
@@ -11,26 +11,26 @@ services:
 
   feme-api-postgres:
     build: .
-    profiles: ["postgres"]
+    profiles: [postgres]
     ports:
-      - "8001:8000"
+      - 8001:8000
     environment:
       FEME_DB_BACKEND: postgres
-      FEME_POSTGRES_DSN: postgresql://feme:feme_dev_password@postgres:5432/feme
+      FEME_POSTGRES_DSN: ${FEME_POSTGRES_DSN:-postgresql://feme:${FEME_POSTGRES_PASSWORD}@postgres:5432/feme}
     depends_on:
       - postgres
 
   postgres:
     image: postgres:16
-    profiles: ["postgres"]
+    profiles: [postgres]
     environment:
       POSTGRES_DB: feme
       POSTGRES_USER: feme
-      POSTGRES_PASSWORD: feme_dev_password
+      POSTGRES_PASSWORD: ${FEME_POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - 5432:5432
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U feme -d feme"]
+      test: [CMD-SHELL, pg_isready -U feme -d feme]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -40,15 +40,15 @@ services:
 
   feme-tests-postgres:
     build: .
-    profiles: ["test-postgres"]
+    profiles: [test-postgres]
     environment:
       FEME_DB_BACKEND: postgres
-      FEME_TEST_POSTGRES_DSN: postgresql://feme:feme_dev_password@postgres:5432/feme
+      FEME_TEST_POSTGRES_DSN: ${FEME_TEST_POSTGRES_DSN:-postgresql://feme:${FEME_POSTGRES_PASSWORD}@postgres:5432/feme}
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["pytest", "-q", "tests/test_v07_postgres_live_integration.py"]
+    command: [pytest, -q, tests/test_v07_postgres_live_integration.py]
 
 volumes:
-  feme_data:
-  pg_data:
+  feme_data: {}
+  pg_data: {}

@@ -4,11 +4,12 @@ When a structured extractor returns malformed JSON, ``attempt_repair`` tries
 to recover a valid claim-extraction-v1 payload by asking the same extractor
 to re-extract from a minimal prompt that includes the broken output.
 """
+
 from __future__ import annotations
 
 import json
 import re
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from feme.extractors.base import ExtractorProvider
@@ -60,7 +61,9 @@ def attempt_repair(
         except Exception:  # noqa: BLE001
             continue
 
-        if isinstance(repaired, dict) and ("claims" in repaired or "candidates" in repaired):
+        if isinstance(repaired, dict) and (
+            "claims" in repaired or "candidates" in repaired
+        ):
             return repaired
 
         # extractor may have returned the raw string inside a wrapper
@@ -76,6 +79,7 @@ def attempt_repair(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
 
 def _strip_code_fence(text: str) -> str:
     """Remove ```json ... ``` fences if present."""

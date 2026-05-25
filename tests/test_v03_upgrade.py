@@ -39,7 +39,9 @@ def test_dedup_project_review_trace_and_integrity(tmp_path: Path):
     trace = ProvenanceGraph(db).trace_claim(claim_ids[0])
     assert trace["evidence_links"]
 
-    review_result = ReviewQueue(db).act(claim_ids[0], "verify", reviewer="test", reason="unit test")
+    review_result = ReviewQueue(db).act(
+        claim_ids[0], "verify", reviewer="test", reason="unit test"
+    )
     assert review_result["after_status"] == "active"
 
     report = IntegrityChecker(db).run(project_id="p1")
@@ -51,7 +53,9 @@ def test_export_import_and_backup(tmp_path: Path):
     source_db = Database(str(tmp_path / "source.sqlite"))
     source_db.init()
     ingestor = EvidenceIngestor(source_db)
-    result = ingestor.ingest_text("The memory engine should link claims to exact spans.", project_id="p2")
+    result = ingestor.ingest_text(
+        "The memory engine should link claims to exact spans.", project_id="p2"
+    )
     candidates = extract_candidates_for_evidence(source_db, result["evidence_id"])
     for candidate in candidates:
         MemoryWriteGovernor(source_db).commit_candidate(candidate, project_id="p2")
@@ -69,5 +73,7 @@ def test_export_import_and_backup(tmp_path: Path):
     imported = ProjectExporter(dest_db).import_project(export_path)
     assert imported["project_id"] == "p2"
     with dest_db.connect() as con:
-        row = con.execute("SELECT COUNT(*) AS n FROM evidence_sources WHERE project_id = 'p2'").fetchone()
+        row = con.execute(
+            "SELECT COUNT(*) AS n FROM evidence_sources WHERE project_id = 'p2'"
+        ).fetchone()
     assert row["n"] == 1

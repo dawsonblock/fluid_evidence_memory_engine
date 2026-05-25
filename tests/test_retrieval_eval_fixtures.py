@@ -1,10 +1,8 @@
 """Tests for feme.eval.retrieval_eval harness and the Phase 3 fixture files."""
+
 from __future__ import annotations
 
-import json
 import os
-
-import pytest
 
 from feme.eval.retrieval_eval import evaluate_retrieval_fixture
 
@@ -18,6 +16,7 @@ def _fixture(name: str) -> str:
 # ---------------------------------------------------------------------------
 # Smoke tests: return type and key structure
 # ---------------------------------------------------------------------------
+
 
 def test_returns_expected_keys():
     result = evaluate_retrieval_fixture(_fixture("basic_memory_cases.jsonl"))
@@ -51,6 +50,7 @@ def test_quote_hit_rate_is_float_in_unit_interval():
 # basic_memory_cases.jsonl
 # ---------------------------------------------------------------------------
 
+
 def test_basic_memory_cases_case_count():
     result = evaluate_retrieval_fixture(_fixture("basic_memory_cases.jsonl"))
     assert result["case_count"] >= 1
@@ -80,6 +80,7 @@ def test_basic_memory_cases_quote_hit_rate_is_perfect():
 # review_boundary_cases.jsonl
 # ---------------------------------------------------------------------------
 
+
 def test_review_boundary_cases_case_count():
     result = evaluate_retrieval_fixture(_fixture("review_boundary_cases.jsonl"))
     assert result["case_count"] == 2
@@ -93,6 +94,7 @@ def test_review_boundary_cases_query_count():
 # ---------------------------------------------------------------------------
 # citation_span_cases.jsonl
 # ---------------------------------------------------------------------------
+
 
 def test_citation_span_cases_case_count():
     result = evaluate_retrieval_fixture(_fixture("citation_span_cases.jsonl"))
@@ -108,6 +110,7 @@ def test_citation_span_cases_quote_hit_rate_is_perfect():
 # contradiction_cases.jsonl
 # ---------------------------------------------------------------------------
 
+
 def test_contradiction_cases_case_count():
     result = evaluate_retrieval_fixture(_fixture("contradiction_cases.jsonl"))
     assert result["case_count"] == 2
@@ -116,6 +119,7 @@ def test_contradiction_cases_case_count():
 # ---------------------------------------------------------------------------
 # Empty fixture edge case
 # ---------------------------------------------------------------------------
+
 
 def test_empty_fixture_returns_zeros(tmp_path):
     empty = tmp_path / "empty.jsonl"
@@ -139,10 +143,9 @@ def test_empty_fixture_no_keys_for_mode_and_top_k(tmp_path):
 # Custom parameters forwarded
 # ---------------------------------------------------------------------------
 
+
 def test_top_k_parameter_forwarded():
-    result = evaluate_retrieval_fixture(
-        _fixture("basic_memory_cases.jsonl"), top_k=5
-    )
+    result = evaluate_retrieval_fixture(_fixture("basic_memory_cases.jsonl"), top_k=5)
     assert result["top_k"] == 5
 
 

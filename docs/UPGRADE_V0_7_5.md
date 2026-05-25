@@ -18,16 +18,16 @@ Note for newer releases: v0.8.0 keeps `claim-extraction-v1` but separates suppor
 
 ## New environment variables
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `FEME_REQUIRE_EXTRACTOR_AUDIT` | `false` | Fail ingestion closed when extraction audit persistence fails |
+| Variable                        | Default               | Purpose                                                       |
+| ------------------------------- | --------------------- | ------------------------------------------------------------- |
+| `FEME_REQUIRE_EXTRACTOR_AUDIT`  | `false`               | Fail ingestion closed when extraction audit persistence fails |
 | `FEME_EXTRACTOR_SCHEMA_VERSION` | `claim-extraction-v1` | Schema version tag written to `extractor_audit.metadata_json` |
 
 Variables from v0.7.4 that remain unchanged:
 
-| Variable | Notes |
-|---|---|
-| `FEME_EXTRACTOR_MODE` | `heuristic` / `json_with_fallback` / `json_strict` |
+| Variable                  | Notes                                                |
+| ------------------------- | ---------------------------------------------------- |
+| `FEME_EXTRACTOR_MODE`     | `heuristic` / `json_with_fallback` / `json_strict`   |
 | `FEME_EXTRACTOR_PROVIDER` | Provider label resolved against the runtime registry |
 
 ## No schema migration required

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .db import Database, rows_to_dicts
-from .utils import json_dumps, new_id, now_iso
+from .utils import json_dumps, now_iso
 
 
 class ProjectManager:

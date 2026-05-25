@@ -1,4 +1,5 @@
 """Tests for the extractor repair module and LLMJsonExtractor."""
+
 from __future__ import annotations
 
 import json
@@ -8,24 +9,24 @@ from unittest.mock import MagicMock
 import pytest
 
 from feme.extractors.llm_json import (
+    _SYSTEM_PROMPT,
     LLMExtractorNotConfiguredError,
     LLMJsonExtractor,
-    _SYSTEM_PROMPT,
 )
-from feme.extractors.repair import attempt_repair, _strip_code_fence, _try_parse
-
+from feme.extractors.repair import _strip_code_fence, _try_parse, attempt_repair
 
 # ---------------------------------------------------------------------------
 # _strip_code_fence
 # ---------------------------------------------------------------------------
 
+
 class TestStripCodeFence:
     def test_strips_json_fence(self):
-        text = "```json\n{\"claims\": []}\n```"
+        text = '```json\n{"claims": []}\n```'
         assert _strip_code_fence(text) == '{"claims": []}'
 
     def test_strips_plain_fence(self):
-        text = "```\n{\"claims\": []}\n```"
+        text = '```\n{"claims": []}\n```'
         assert _strip_code_fence(text) == '{"claims": []}'
 
     def test_noop_when_no_fence(self):
@@ -36,6 +37,7 @@ class TestStripCodeFence:
 # ---------------------------------------------------------------------------
 # _try_parse
 # ---------------------------------------------------------------------------
+
 
 class TestTryParse:
     def test_parses_valid_claims_dict(self):
@@ -63,6 +65,7 @@ class TestTryParse:
 # attempt_repair – fast-path fixes
 # ---------------------------------------------------------------------------
 
+
 class TestAttemptRepairFastPath:
     def test_repairs_code_fenced_json(self):
         fenced = '```json\n{"claims": []}\n```'
@@ -84,6 +87,7 @@ class TestAttemptRepairFastPath:
 # attempt_repair – extractor-assisted repair
 # ---------------------------------------------------------------------------
 
+
 class TestAttemptRepairViaExtractor:
     def _make_extractor(self, response: Any) -> MagicMock:
         extractor = MagicMock()
@@ -91,7 +95,9 @@ class TestAttemptRepairViaExtractor:
         return extractor
 
     def test_returns_repaired_dict_from_extractor(self):
-        good = {"claims": [{"subject": "FEME", "predicate": "uses", "object": "PostgreSQL"}]}
+        good = {
+            "claims": [{"subject": "FEME", "predicate": "uses", "object": "PostgreSQL"}]
+        }
         extractor = self._make_extractor(good)
         result = attempt_repair("{broken", extractor, max_attempts=1)
         assert result == good
@@ -105,7 +111,11 @@ class TestAttemptRepairViaExtractor:
         assert kwargs.get("metadata") is not None or extractor.extract.call_args[0]
         # repair metadata should include is_repair_attempt
         call_args = extractor.extract.call_args
-        meta_arg = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("metadata", {})
+        meta_arg = (
+            call_args[0][1]
+            if len(call_args[0]) > 1
+            else call_args[1].get("metadata", {})
+        )
         assert meta_arg.get("is_repair_attempt") is True
 
     def test_returns_none_when_all_attempts_fail(self):
@@ -132,6 +142,7 @@ class TestAttemptRepairViaExtractor:
 # LLMJsonExtractor – configuration
 # ---------------------------------------------------------------------------
 
+
 class TestLLMJsonExtractorConfig:
     def test_name_and_version(self):
         extractor = LLMJsonExtractor(api_key="test")
@@ -144,7 +155,9 @@ class TestLLMJsonExtractorConfig:
         assert meta["llm_model"] == "gpt-4o"
 
     def test_provider_metadata_contains_api_base(self):
-        extractor = LLMJsonExtractor(api_key="test", api_base="https://custom.example.com/v1")
+        extractor = LLMJsonExtractor(
+            api_key="test", api_base="https://custom.example.com/v1"
+        )
         meta = extractor.provider_metadata()
         assert "custom.example.com" in meta["llm_api_base"]
 
@@ -173,12 +186,13 @@ class TestLLMJsonExtractorConfig:
     def test_system_prompt_uses_split_relation_fields(self):
         assert '"support_relation"' in _SYSTEM_PROMPT
         assert '"evidence_kind"' in _SYSTEM_PROMPT
-        assert 'legacy evidence_relation' in _SYSTEM_PROMPT
+        assert "legacy evidence_relation" in _SYSTEM_PROMPT
 
 
 # ---------------------------------------------------------------------------
 # LLMJsonExtractor – response parsing
 # ---------------------------------------------------------------------------
+
 
 class TestLLMJsonExtractorParsing:
     def _extractor(self) -> LLMJsonExtractor:
@@ -186,7 +200,9 @@ class TestLLMJsonExtractorParsing:
 
     def test_parse_valid_claims_response(self):
         e = self._extractor()
-        content = json.dumps({"claims": [{"subject": "FEME", "predicate": "uses", "object": "Postgres"}]})
+        content = json.dumps(
+            {"claims": [{"subject": "FEME", "predicate": "uses", "object": "Postgres"}]}
+        )
         result = e._parse_response(content)
         assert "claims" in result
         assert len(result["claims"]) == 1
@@ -217,8 +233,10 @@ class TestLLMJsonExtractorParsing:
 # LLMJsonExtractor – in registry
 # ---------------------------------------------------------------------------
 
+
 def test_llm_json_extractor_in_default_registry():
     from feme.extractors.registry import build_default_registry
+
     registry = build_default_registry()
     provider = registry.get("llm_json")
     assert provider is not None

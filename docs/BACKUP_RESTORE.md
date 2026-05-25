@@ -24,7 +24,7 @@ Use one of the following safe alternatives:
 pg_dump "postgresql://feme:feme_dev_password@localhost:5432/feme" -Fc -f ./backups/feme.dump
 ```
 
-2. FEME project export for logical data transfer:
+1. FEME project export for logical data transfer:
 
 ```bash
 feme export-project default --out ./backups/default_project.json

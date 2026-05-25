@@ -100,11 +100,13 @@ tests/test_postgres_sql_splitter.py
 tests/test_release_build_script.py
 tests/test_release_docs_version_consistency.py
 tests/test_release_validator_detects_sqlite_content.py
+tests/test_release_validator_rejects_invalid_zip.py
 tests/test_release_zip_forbidden_artifacts.py
 tests/test_release_zip_validator_negative.py
 tests/test_release_zip_version_naming.py
 tests/test_retrieval.py
 tests/test_retrieval_eval_fixtures.py
+tests/test_retrieval_eval_quote_support_spans.py
 tests/test_retrieval_public_internal.py
 tests/test_review_required_enforcement.py
 tests/test_runtime_health_migrations.py

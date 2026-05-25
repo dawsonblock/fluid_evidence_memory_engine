@@ -4,10 +4,16 @@ import re
 from dataclasses import dataclass
 
 EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
-PHONE_RE = re.compile(r"(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})(?!\d)")
+PHONE_RE = re.compile(
+    r"(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})(?!\d)"
+)
 CARD_RE = re.compile(r"(?<!\d)(?:\d[ -]*?){13,16}(?!\d)")
 SIN_RE = re.compile(r"(?<!\d)\d{3}[-\s]?\d{3}[-\s]?\d{3}(?!\d)")
-ADDRESS_HINT_RE = re.compile(r"\b\d{1,6}\s+[A-Za-z0-9.' -]+\s+(?:street|st|avenue|ave|road|rd|drive|dr|crescent|cres|court|ct|lane|ln|boulevard|blvd)\b", re.I)
+ADDRESS_HINT_RE = re.compile(
+    r"\b\d{1,6}\s+[A-Za-z0-9.' -]+\s+(?:street|st|avenue|ave|road|rd|drive|dr|crescent|cres|court|ct|lane|ln|boulevard|blvd)\b",
+    re.I,
+)
+
 
 @dataclass(frozen=True)
 class SensitiveFinding:
@@ -28,7 +34,9 @@ def find_sensitive(text: str) -> list[SensitiveFinding]:
     ]
     for kind, pattern in patterns:
         for match in pattern.finditer(text):
-            findings.append(SensitiveFinding(kind, match.start(), match.end(), match.group(0)))
+            findings.append(
+                SensitiveFinding(kind, match.start(), match.end(), match.group(0))
+            )
     findings.sort(key=lambda f: (f.start, f.end))
     return findings
 
@@ -55,7 +63,7 @@ def redact_text(text: str, *, keep_kind: bool = True) -> str:
     for finding in findings:
         if finding.start < cursor:
             continue
-        out.append(text[cursor:finding.start])
+        out.append(text[cursor : finding.start])
         label = f"[REDACTED:{finding.kind}]" if keep_kind else "[REDACTED]"
         out.append(label)
         cursor = finding.end

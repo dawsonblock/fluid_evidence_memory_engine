@@ -8,7 +8,6 @@ from feme.db import Database
 from feme.evidence import EvidenceIngestor
 from feme.extractors.registry import ExtractorRegistry
 
-
 TEXT = "FEME must use PostgreSQL as canonical memory."
 
 
@@ -129,9 +128,7 @@ def test_malformed_json_triggers_repair_and_succeeds(tmp_path: Path):
 def test_repair_failure_in_json_strict_returns_zero_candidates(tmp_path: Path):
     db = _db(tmp_path)
     evidence_id = _ingest(db)
-    provider = FakeStructuredProvider(
-        ["{broken", "still not json", "also not json"]
-    )
+    provider = FakeStructuredProvider(["{broken", "still not json", "also not json"])
 
     candidates = extract_candidates_for_evidence(
         db,

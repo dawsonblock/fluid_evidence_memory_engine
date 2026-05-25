@@ -7,7 +7,7 @@
 
 Token-anchored, claim-based long-context memory with strict evidence provenance, review governance, and dual runtime support (SQLite + PostgreSQL).
 
-FEME v0.8.2 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
+FEME v0.8.3 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
 
 > Raw sources are authoritative. Claims are structured interpretations. Summaries are disposable. Embeddings are retrieval helpers only.
 
@@ -31,14 +31,14 @@ FEME is a practical memory runtime for systems that need grounded answers and au
 
 ### Core capabilities
 
-| Area | What you get |
-| --- | --- |
-| Evidence integrity | Immutable source records, snapshots, and token spans |
-| Claim quality | Canonicalization, contradiction tracking, and write governance |
-| Retrieval | Hybrid retrieval with lexical + embedding-assisted ranking |
-| Governance | Source policy, review workflow, lifecycle and retention controls |
-| Auditability | Ledger chain verification, provenance packets, citation scaffolding |
-| Runtime | SQLite and PostgreSQL runtime selection with shared APIs |
+| Area               | What you get                                                        |
+| ------------------ | ------------------------------------------------------------------- |
+| Evidence integrity | Immutable source records, snapshots, and token spans                |
+| Claim quality      | Canonicalization, contradiction tracking, and write governance      |
+| Retrieval          | Hybrid retrieval with lexical + embedding-assisted ranking          |
+| Governance         | Source policy, review workflow, lifecycle and retention controls    |
+| Auditability       | Ledger chain verification, provenance packets, citation scaffolding |
+| Runtime            | SQLite and PostgreSQL runtime selection with shared APIs            |
 
 ---
 
@@ -360,7 +360,7 @@ tests/
 
 ## Current Status
 
-FEME v0.8.2 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
+FEME v0.8.3 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
 
 Implemented:
 

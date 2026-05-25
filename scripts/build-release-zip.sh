@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016,SC2312
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT_DIR"
+cd "${ROOT_DIR}"
 
 if [[ $# -ge 1 ]]; then
 	VERSION="$1"
@@ -19,33 +20,28 @@ else
 	' pyproject.toml)"
 fi
 
-if [[ -z "$VERSION" ]]; then
+if [[ -z ${VERSION} ]]; then
 	echo "Unable to determine project version from pyproject.toml" >&2
 	exit 2
 fi
 
 OUT_DIR="${OUT_DIR:-dist}"
 VERSION_UNDERSCORED="${VERSION//./_}"
-OUT_FILE="$OUT_DIR/fluid_evidence_memory_engine_v${VERSION_UNDERSCORED}.zip"
+OUT_FILE="${OUT_DIR}/fluid_evidence_memory_engine_v${VERSION_UNDERSCORED}.zip"
 
-mkdir -p "$OUT_DIR"
-rm -f "$OUT_FILE"
+mkdir -p "${OUT_DIR}"
+rm -f "${OUT_FILE}"
 
 clean_runtime_databases() {
-	find . \
-		\( -path "./.git" -o -path "./.venv" -o -path "./venv" -o -path "./dist" -o -path "./build" \) -prune \
-		-o \( \
-			-name '$DB_PATH' \
-			-o -name "*.sqlite" \
-			-o -name "*.sqlite3" \
-			-o -name "*.db" \
-			-o -name "*.sqlite-journal" \
-			-o -name "*.db-journal" \
-			-o -name "*.sqlite-wal" \
-			-o -name "*.sqlite-shm" \
-			-o -name "*.db-wal" \
-			-o -name "*.db-shm" \
-		\) -type f -delete
+	for pattern in '$DB_PATH' '*.sqlite' '*.sqlite3' '*.db' '*.sqlite-journal' '*.db-journal' '*.sqlite-wal' '*.sqlite-shm' '*.db-wal' '*.db-shm'; do
+		find . -type f -name "${pattern}" \
+			! -path "./.git/*" \
+			! -path "./.venv/*" \
+			! -path "./venv/*" \
+			! -path "./dist/*" \
+			! -path "./build/*" \
+			-delete
+	done
 }
 
 # Pre-clean local caches so they are not accidentally staged.
@@ -59,13 +55,13 @@ find . -name "._*" -delete
 rm -rf __MACOSX
 clean_runtime_databases
 
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-	&& [[ -z "$(git status --porcelain --untracked-files=normal)" ]]; then
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1 &&
+	[[ -z "$(git status --porcelain --untracked-files=normal)" ]]; then
 	# Build from git-tracked content only so local caches/egg-info do not leak.
 	# --worktree-attributes ensures local .gitattributes export-ignore rules apply.
-	git archive --worktree-attributes --format=zip --output "$OUT_FILE" HEAD
+	git archive --worktree-attributes --format=zip --output "${OUT_FILE}" HEAD
 else
-	zip -r "$OUT_FILE" . \
+	zip -r "${OUT_FILE}" . \
 		-x ".git/*" \
 		-x "dist/*" \
 		-x ".venv/*" \
@@ -95,14 +91,16 @@ else
 		-x "*.env"
 fi
 
-if [[ ! -s "$OUT_FILE" ]]; then
-	echo "Release ZIP was not created or is empty: $OUT_FILE" >&2
+if [[ ! -s ${OUT_FILE} ]]; then
+	echo "Release ZIP was not created or is empty: ${OUT_FILE}" >&2
 	exit 1
 fi
 
-if ! python3 -m zipfile -t "$OUT_FILE" >/dev/null 2>&1; then
-	echo "Release ZIP failed structural integrity check: $OUT_FILE" >&2
+if ! python3 -m zipfile -t "${OUT_FILE}" >/dev/null 2>&1; then
+	echo "Release ZIP failed structural integrity check: ${OUT_FILE}" >&2
 	exit 1
 fi
 
-echo "Created $OUT_FILE"
+bash scripts/validate-release-zip.sh "${OUT_FILE}"
+
+echo "Created ${OUT_FILE}"

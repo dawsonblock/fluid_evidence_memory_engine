@@ -18,7 +18,14 @@ class ClaimCanonicalizer:
     def __init__(self, db: Database):
         self.db = db
 
-    def rebuild_clusters(self, *, project_id: str = "default", min_claims: int = 1, con=None, autocommit: bool = True) -> dict:
+    def rebuild_clusters(
+        self,
+        *,
+        project_id: str = "default",
+        min_claims: int = 1,
+        con=None,
+        autocommit: bool = True,
+    ) -> dict:
         now = now_iso()
         con_ctx = nullcontext(con) if con is not None else self.db.connect()
         with con_ctx as active_con:
@@ -39,11 +46,20 @@ class ClaimCanonicalizer:
             for key, claims in groups.items():
                 if len(claims) < min_claims:
                     continue
-                canonical = sorted(claims, key=lambda c: (float(c["confidence"]), float(c["source_quality"])), reverse=True)[0]
+                canonical = sorted(
+                    claims,
+                    key=lambda c: (float(c["confidence"]), float(c["source_quality"])),
+                    reverse=True,
+                )[0]
                 claim_ids = [c["id"] for c in claims]
                 title = f"{canonical['subject']} / {canonical['predicate']}"
-                confidence = sum(float(c["confidence"]) for c in claims) / max(1, len(claims))
-                existing = active_con.execute("SELECT id FROM claim_clusters WHERE project_id = ? AND cluster_key = ?", (project_id, key)).fetchone()
+                confidence = sum(float(c["confidence"]) for c in claims) / max(
+                    1, len(claims)
+                )
+                existing = active_con.execute(
+                    "SELECT id FROM claim_clusters WHERE project_id = ? AND cluster_key = ?",
+                    (project_id, key),
+                ).fetchone()
                 if existing:
                     active_con.execute(
                         """
@@ -51,7 +67,15 @@ class ClaimCanonicalizer:
                         SET title = ?, canonical_claim_id = ?, claim_ids_json = ?, confidence = ?, updated_at = ?, metadata_json = ?
                         WHERE id = ?
                         """,
-                        (title, canonical["id"], json_dumps(claim_ids), confidence, now, json_dumps({"claim_count": len(claims)}), existing["id"]),
+                        (
+                            title,
+                            canonical["id"],
+                            json_dumps(claim_ids),
+                            confidence,
+                            now,
+                            json_dumps({"claim_count": len(claims)}),
+                            existing["id"],
+                        ),
                     )
                 else:
                     active_con.execute(
@@ -60,14 +84,30 @@ class ClaimCanonicalizer:
                         (id, project_id, cluster_key, title, canonical_claim_id, claim_ids_json, confidence, created_at, updated_at, metadata_json)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (new_id("clu"), project_id, key, title, canonical["id"], json_dumps(claim_ids), confidence, now, now, json_dumps({"claim_count": len(claims)})),
+                        (
+                            new_id("clu"),
+                            project_id,
+                            key,
+                            title,
+                            canonical["id"],
+                            json_dumps(claim_ids),
+                            confidence,
+                            now,
+                            now,
+                            json_dumps({"claim_count": len(claims)}),
+                        ),
                     )
                 created_or_updated += 1
             if autocommit:
                 active_con.commit()
-        return {"clusters_created_or_updated": created_or_updated, "project_id": project_id}
+        return {
+            "clusters_created_or_updated": created_or_updated,
+            "project_id": project_id,
+        }
 
-    def list_clusters(self, *, project_id: str = "default", limit: int = 100) -> list[dict]:
+    def list_clusters(
+        self, *, project_id: str = "default", limit: int = 100
+    ) -> list[dict]:
         with self.db.connect() as con:
             rows = con.execute(
                 "SELECT * FROM claim_clusters WHERE project_id = ? ORDER BY updated_at DESC LIMIT ?",

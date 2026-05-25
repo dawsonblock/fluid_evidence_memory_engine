@@ -106,9 +106,7 @@ def test_build_release_zip_falls_back_without_git_repo(tmp_path: Path):
 
     version = _project_version(extracted)
     version_us = version.replace(".", "_")
-    zip_path = (
-        extracted / "dist" / f"fluid_evidence_memory_engine_v{version_us}.zip"
-    )
+    zip_path = extracted / "dist" / f"fluid_evidence_memory_engine_v{version_us}.zip"
 
     subprocess.run(
         ["bash", "scripts/build-release-zip.sh"],
@@ -134,13 +132,13 @@ def test_build_release_zip_excludes_runtime_databases_in_fallback_path(
 
     version = _project_version(extracted)
     version_us = version.replace(".", "_")
-    zip_path = (
-        extracted / "dist" / f"fluid_evidence_memory_engine_v{version_us}.zip"
-    )
+    zip_path = extracted / "dist" / f"fluid_evidence_memory_engine_v{version_us}.zip"
 
     (extracted / "$DB_PATH").write_bytes(b"SQLite format 3\x00runtime")
-    (extracted / "memory.db").write_bytes(b"SQLite format 3\x00memory")
-    (extracted / "cache.sqlite-wal").write_bytes(b"wal")
+    (extracted / "test.sqlite").write_bytes(b"SQLite format 3\x00test")
+    (extracted / "test.sqlite-wal").write_bytes(b"wal")
+    (extracted / "test.sqlite-shm").write_bytes(b"shm")
+    (extracted / "test.db").write_bytes(b"SQLite format 3\x00db")
 
     subprocess.run(
         ["bash", "scripts/build-release-zip.sh"],
@@ -148,9 +146,14 @@ def test_build_release_zip_excludes_runtime_databases_in_fallback_path(
         check=True,
     )
 
+    assert zip_path.exists(), f"expected release archive missing: {zip_path}"
+    assert zip_path.stat().st_size > 0, "expected non-empty release archive"
+
     with zipfile.ZipFile(zip_path) as archive:
         names = archive.namelist()
 
     assert "$DB_PATH" not in names
-    assert "memory.db" not in names
-    assert "cache.sqlite-wal" not in names
+    assert "test.sqlite" not in names
+    assert "test.sqlite-wal" not in names
+    assert "test.sqlite-shm" not in names
+    assert "test.db" not in names

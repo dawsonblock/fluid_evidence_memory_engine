@@ -1,9 +1,9 @@
 """Phase C: Tests for V15 migration columns and embeddings-rebuild CLI."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Generator
 
 import pytest
 
@@ -13,10 +13,10 @@ from feme.maintenance import MaintenanceManager
 from feme.migrations import MigrationManager
 from feme.runtime import make_database
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _db(tmp_path: Path) -> Database:
     db = make_database(str(tmp_path / "test.db"))
@@ -38,12 +38,13 @@ def _ingest(db: Database, text: str, project_id: str = "default") -> str:
 # V15 migration: new columns on embeddings table
 # ---------------------------------------------------------------------------
 
+
 class TestV15Migration:
     def test_migration_applies_new_columns(self, tmp_path: Path):
         """V15 adds provider, dimensions, config_hash to embeddings."""
         db = _db(tmp_path)  # db.init() runs apply_all() internally
         result = MigrationManager(db).apply_all()  # second call: already applied
-        assert result["schema_version"] == "0.8.2"
+        assert result["schema_version"] == "0.8.3"
         # Verify V15 was applied (may have been applied during db.init)
         applied_ids = [m["id"] for m in MigrationManager(db).list_applied()]
         assert "015_embeddings_provider_columns" in applied_ids
@@ -63,7 +64,7 @@ class TestV15Migration:
     def test_new_columns_have_defaults(self, tmp_path: Path):
         """Rows inserted before V15 upgrade get default values for new columns."""
         db = _db(tmp_path)
-        evidence_id = _ingest(db, "Test sentence for embedding defaults.")
+        _ingest(db, "Test sentence for embedding defaults.")
         # After init+ingest, migration has run; embed something and read it back
         manager = MaintenanceManager(db)
         manager.rebuild_embeddings(project_id="default", owner_type="chunk")
@@ -79,9 +80,9 @@ class TestV15Migration:
     def test_migration_idempotent(self, tmp_path: Path):
         """Calling apply_all twice does not raise and reports no new migrations."""
         db = _db(tmp_path)
-        first = MigrationManager(db).apply_all()
+        MigrationManager(db).apply_all()
         second = MigrationManager(db).apply_all()
-        assert second["schema_version"] == "0.8.2"
+        assert second["schema_version"] == "0.8.3"
         # Second run has nothing new to apply
         assert second["applied"] == []
 
@@ -89,6 +90,7 @@ class TestV15Migration:
 # ---------------------------------------------------------------------------
 # MaintenanceManager.rebuild_embeddings
 # ---------------------------------------------------------------------------
+
 
 class TestRebuildEmbeddings:
     def test_rebuild_chunks_returns_count(self, tmp_path: Path):
@@ -143,7 +145,9 @@ class TestRebuildEmbeddings:
     def test_embeddings_stored_as_valid_json(self, tmp_path: Path):
         db = _db(tmp_path)
         _ingest(db, "JSON validation sentence for embeddings.")
-        MaintenanceManager(db).rebuild_embeddings(project_id="default", owner_type="chunk")
+        MaintenanceManager(db).rebuild_embeddings(
+            project_id="default", owner_type="chunk"
+        )
         with db.connect() as con:
             rows = con.execute("SELECT vector_json FROM embeddings").fetchall()
         assert rows
@@ -157,23 +161,35 @@ class TestRebuildEmbeddings:
 # CLI: embeddings-rebuild command
 # ---------------------------------------------------------------------------
 
+
 class TestEmbeddingsRebuildCLI:
     def test_cli_command_registered(self):
         """embeddings-rebuild command should appear in CLI app commands."""
         from feme.cli import app
+
         command_names = [c.name for c in app.registered_commands]
         assert "embeddings-rebuild" in command_names
 
     def test_cli_runs_via_typer_runner(self, tmp_path: Path):
         from typer.testing import CliRunner
+
         from feme.cli import app
+
         db_path = str(tmp_path / "cli_test.db")
         runner = CliRunner()
         # init first
         runner.invoke(app, ["init", "--db", db_path])
         result = runner.invoke(
             app,
-            ["embeddings-rebuild", "--db", db_path, "--project-id", "default", "--owner-type", "chunk"],
+            [
+                "embeddings-rebuild",
+                "--db",
+                db_path,
+                "--project-id",
+                "default",
+                "--owner-type",
+                "chunk",
+            ],
         )
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -182,7 +198,9 @@ class TestEmbeddingsRebuildCLI:
 
     def test_cli_claim_owner_type(self, tmp_path: Path):
         from typer.testing import CliRunner
+
         from feme.cli import app
+
         db_path = str(tmp_path / "cli_claim_test.db")
         runner = CliRunner()
         runner.invoke(app, ["init", "--db", db_path])

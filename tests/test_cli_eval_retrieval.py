@@ -1,14 +1,13 @@
 """Tests for the eval-retrieval CLI command (Phase A v0.7.7)."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from feme.cli import app
-
 
 runner = CliRunner()
 
@@ -48,7 +47,9 @@ def test_eval_retrieval_no_pending_review_leaks(tmp_path: Path):
 
 def test_eval_retrieval_missing_fixture(tmp_path: Path):
     """eval-retrieval on a missing fixture should raise a non-zero exit."""
-    result = runner.invoke(app, ["eval-retrieval", "--fixture", "/nonexistent/path.jsonl"])
+    result = runner.invoke(
+        app, ["eval-retrieval", "--fixture", "/nonexistent/path.jsonl"]
+    )
     assert result.exit_code != 0 or (
         result.exit_code == 0 and json.loads(result.output)["case_count"] == 0
     ), "Expected either non-zero exit or empty result for missing fixture"

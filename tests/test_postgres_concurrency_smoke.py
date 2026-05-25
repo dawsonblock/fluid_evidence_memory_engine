@@ -34,7 +34,9 @@ def _live_postgres_dsn() -> str:
         os.getenv("DATABASE_URL"),
     ]
     postgres_candidates = [
-        dsn for dsn in candidates if isinstance(dsn, str) and dsn.startswith(("postgres://", "postgresql://"))
+        dsn
+        for dsn in candidates
+        if isinstance(dsn, str) and dsn.startswith(("postgres://", "postgresql://"))
     ]
     for dsn in postgres_candidates:
         if not _is_placeholder_dsn(dsn):

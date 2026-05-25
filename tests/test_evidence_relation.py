@@ -1,9 +1,8 @@
 """Tests for evidence_relation label propagation (v0.8)."""
+
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from feme.claim_extractor import extract_candidates_for_evidence
 from feme.db import Database
@@ -11,10 +10,10 @@ from feme.evidence import EvidenceIngestor
 from feme.models import ClaimCandidate
 from feme.write_governor import MemoryWriteGovernor
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _db(tmp_path: Path) -> Database:
     db = Database(str(tmp_path / "evidence-relation.sqlite"))
@@ -39,6 +38,7 @@ def _link_rows(db: Database, evidence_id: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # ClaimCandidate default
 # ---------------------------------------------------------------------------
+
 
 def test_claim_candidate_default_evidence_relation():
     c = ClaimCandidate(
@@ -80,6 +80,7 @@ def test_claim_candidate_split_relation_fields():
 # ---------------------------------------------------------------------------
 # Write path: evidence_relation persisted into claim_evidence_links
 # ---------------------------------------------------------------------------
+
 
 def test_heuristic_claims_default_to_unknown_relation(tmp_path: Path):
     db = _db(tmp_path)
@@ -179,12 +180,11 @@ def test_multiple_candidates_different_relations(tmp_path: Path):
 # Schema: evidence_relation column present after migration
 # ---------------------------------------------------------------------------
 
+
 def test_evidence_relation_column_exists_after_init(tmp_path: Path):
     db = _db(tmp_path)
     with db.connect() as con:
-        info = con.execute(
-            "PRAGMA table_info(claim_evidence_links)"
-        ).fetchall()
+        info = con.execute("PRAGMA table_info(claim_evidence_links)").fetchall()
     columns = [row["name"] for row in info]
     assert "evidence_relation" in columns
     assert "evidence_kind" in columns
@@ -208,14 +208,13 @@ def test_evidence_relation_column_default_unknown(tmp_path: Path):
 # Migration: V14 runs cleanly on a fresh DB
 # ---------------------------------------------------------------------------
 
+
 def test_v14_migration_column_exists(tmp_path: Path):
     """evidence_relation column is present after db.init() — either via base
     schema (new install) or via V14 migration (upgrade)."""
     db = Database(str(tmp_path / "migration-v14.sqlite"))
     db.init()
     with db.connect() as con:
-        info = con.execute(
-            "PRAGMA table_info(claim_evidence_links)"
-        ).fetchall()
+        info = con.execute("PRAGMA table_info(claim_evidence_links)").fetchall()
     columns = [row["name"] for row in info]
     assert "evidence_relation" in columns, "evidence_relation column missing after init"

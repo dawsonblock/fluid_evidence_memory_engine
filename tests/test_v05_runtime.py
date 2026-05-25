@@ -33,6 +33,7 @@ def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
         "0.8.0",
         "0.8.1",
         "0.8.2",
+        "0.8.3",
         "0.9.0",
     }
     health = runtime_health(db)

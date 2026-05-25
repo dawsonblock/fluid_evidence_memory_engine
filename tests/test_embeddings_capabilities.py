@@ -17,7 +17,7 @@ def test_embedding_capabilities_default_to_hashing_for_sqlite(tmp_path: Path):
     caps = embedding_runtime_capabilities(db)
     assert caps["provider"] == "hashing-embedding-v1"
     assert caps["provider_name"] == "hashing"
-    assert caps["provider_version"] == "0.8.2"
+    assert caps["provider_version"] == "0.8.3"
     assert int(caps["provider_dimensions"]) == 256
     assert caps["mode"] == "hashing"
     assert caps["pgvector_database_enabled"] is False

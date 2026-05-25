@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from .claim_canonicalizer import ClaimCanonicalizer
 from .claim_extractor import extract_candidates_for_evidence
-from .contradiction import ContradictionEngine
 from .config import get_settings
+from .contradiction import ContradictionEngine
 from .db import Database
 from .evidence import EvidenceIngestor
 from .ledger import MemoryLedger

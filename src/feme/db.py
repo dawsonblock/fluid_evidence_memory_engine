@@ -9,7 +9,7 @@ from .utils import now_iso
 
 ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "sqlite_schema.sql"
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "sqlite_schema.sql"
-SCHEMA_VERSION = "0.8.2"
+SCHEMA_VERSION = "0.8.3"
 MIGRATION_STATUS_COMPLETE = "complete"
 MIGRATION_STATUS_FAILED = "failed"
 MIGRATION_STATUS_INCOMPLETE = "incomplete"
@@ -48,8 +48,8 @@ class Database:
             con.commit()
         # Apply idempotent runtime migrations after the base schema.
         try:
-            from .migrations import MigrationManager
             from .migration_health import sync_migration_health
+            from .migrations import MigrationManager
 
             MigrationManager(self).apply_all()
         except Exception as exc:

@@ -2,49 +2,49 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich import print
 from rich.table import Table
 
+from .answer_builder import GroundedAnswerBuilder
 from .audit import AuditReader
+from .backup import BackupManager
+from .citations import CitationManager
+from .claim_canonicalizer import ClaimCanonicalizer
 from .claim_extractor import extract_candidates_for_evidence
 from .config import get_settings
+from .consolidation import MemoryConsolidator
 from .context_builder import ContextBuilder
 from .contradiction import ContradictionEngine
-from .db import Database
-from .evidence import EvidenceIngestor
-from .evaluation import RetrievalEvaluator
 from .eval import evaluate_extraction_fixture
+from .evaluation import RetrievalEvaluator
+from .evidence import EvidenceIngestor
 from .export_import import ProjectExporter
-from .lifecycle import MemoryLifecycleManager
-from .models import EvaluationCase
-from .retrieval import RetrievalPlanner
-from .verifier import AnswerVerifier
-from .write_governor import MemoryWriteGovernor
-from .projects import ProjectManager
-from .review import ReviewQueue
-from .provenance import ProvenanceGraph
 from .integrity import IntegrityChecker
-from .backup import BackupManager
+from .ledger import MemoryLedger
+from .lifecycle import MemoryLifecycleManager
+from .maintenance import MaintenanceManager
+from .migrations import MigrationManager
+from .models import EvaluationCase
+from .projects import ProjectManager
+from .provenance import ProvenanceGraph
+from .retention import RetentionManager
+from .retrieval import RetrievalPlanner
+from .retrieval_eval_suite import RetrievalEvalSuite
+from .review import ReviewQueue
+from .runtime import make_database, runtime_health
+from .runtime_pipeline import TransactionalIngestionPipeline
 from .source_registry import SourceRegistry
 from .temporal import TimelineManager
-from .citations import CitationManager
-from .consolidation import MemoryConsolidator
-from .retention import RetentionManager
-from .maintenance import MaintenanceManager
-from .answer_builder import GroundedAnswerBuilder
-from .migrations import MigrationManager
-from .ledger import MemoryLedger
-from .runtime_pipeline import TransactionalIngestionPipeline
-from .claim_canonicalizer import ClaimCanonicalizer
-from .retrieval_eval_suite import RetrievalEvalSuite
-from .runtime import make_database, runtime_health
+from .verifier import AnswerVerifier
+from .write_governor import MemoryWriteGovernor
 
 app = typer.Typer(help="Fluid Evidence Memory Engine CLI")
 
 
-def _db(path: str | None):
+def _db(path: Optional[str]):
     return make_database(path)
 
 
@@ -67,15 +67,15 @@ def ingest_text(
     project_id: str = typer.Option("default"),
     extract_claims: bool = typer.Option(True),
     extract_entities: bool = typer.Option(True),
-    extractor_mode: str | None = typer.Option(
+    extractor_mode: Optional[str] = typer.Option(
         None,
         help="Extractor mode: heuristic, json_with_fallback, or json_strict",
     ),
-    extractor_provider: str | None = typer.Option(
+    extractor_provider: Optional[str] = typer.Option(
         None,
         help="Extractor provider label written to extraction audit",
     ),
-    extractor_schema_version: str | None = typer.Option(
+    extractor_schema_version: Optional[str] = typer.Option(
         None,
         help="Extractor schema version (default: claim-extraction-v1)",
     ),
@@ -209,7 +209,7 @@ def search(
     query: str = typer.Argument(...),
     project_id: str = typer.Option("default"),
     top_k: int = 10,
-    retrieval_mode: str | None = typer.Option(
+    retrieval_mode: Optional[str] = typer.Option(
         None,
         help="Retrieval mode: public (reviewed-only) or internal",
     ),
@@ -243,7 +243,7 @@ def context(
     question: str = typer.Argument(...),
     project_id: str = typer.Option("default"),
     budget: int = typer.Option(12000),
-    retrieval_mode: str | None = typer.Option(
+    retrieval_mode: Optional[str] = typer.Option(
         None,
         help="Retrieval mode: public (reviewed-only) or internal",
     ),
@@ -275,7 +275,7 @@ def verify(
     ),
     project_id: str = typer.Option("default"),
     budget: int = typer.Option(12000),
-    retrieval_mode: str | None = typer.Option(
+    retrieval_mode: Optional[str] = typer.Option(
         None,
         help="Retrieval mode: public (reviewed-only) or internal",
     ),
@@ -659,6 +659,7 @@ def embeddings_rebuild(
     database = _db(db)
     database.init()
     from .maintenance import MaintenanceManager
+
     result = MaintenanceManager(database).rebuild_embeddings(
         project_id=project_id, owner_type=owner_type
     )
@@ -682,15 +683,15 @@ def ingest_governed(
     project_id: str = typer.Option("default"),
     actor: str = typer.Option(None),
     extract_claims: bool = typer.Option(True),
-    extractor_mode: str | None = typer.Option(
+    extractor_mode: Optional[str] = typer.Option(
         None,
         help="Extractor mode: heuristic, json_with_fallback, or json_strict",
     ),
-    extractor_provider: str | None = typer.Option(
+    extractor_provider: Optional[str] = typer.Option(
         None,
         help="Extractor provider label written to extraction audit",
     ),
-    extractor_schema_version: str | None = typer.Option(
+    extractor_schema_version: Optional[str] = typer.Option(
         None,
         help="Extractor schema version (default: claim-extraction-v1)",
     ),
@@ -865,8 +866,7 @@ def eval_extraction(
         False,
         "--verbose",
         help=(
-            "Include per-case expected/actual extraction details in the "
-            "JSON output"
+            "Include per-case expected/actual extraction details in the " "JSON output"
         ),
     ),
 ):

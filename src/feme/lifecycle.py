@@ -38,14 +38,22 @@ class MemoryLifecycleManager:
                 before = dict(row)
                 created = _parse_iso(row["created_at"]) or now
                 age_days = max(0, (now - created).days)
-                new_salience = clamp(float(row["salience"]) - self.policy.salience_decay_per_run)
+                new_salience = clamp(
+                    float(row["salience"]) - self.policy.salience_decay_per_run
+                )
                 new_status = row["status"]
                 reason = "salience_decay"
-                if age_days >= self.policy.stale_after_days and new_salience <= self.policy.minimum_active_salience:
+                if (
+                    age_days >= self.policy.stale_after_days
+                    and new_salience <= self.policy.minimum_active_salience
+                ):
                     new_status = "stale"
                     stale += 1
                     reason = "age_and_low_salience"
-                if new_salience != float(row["salience"]) or new_status != row["status"]:
+                if (
+                    new_salience != float(row["salience"])
+                    or new_status != row["status"]
+                ):
                     con.execute(
                         "UPDATE memory_claims SET salience = ?, status = ?, updated_at = ? WHERE id = ?",
                         (new_salience, new_status, now_iso(), row["id"]),

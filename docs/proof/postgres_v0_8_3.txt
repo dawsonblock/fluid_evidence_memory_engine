@@ -1,0 +1,28 @@
+FEME v0.8.2 Postgres proof (refreshed)
+
+Date:
+2026-05-24
+
+Command used:
+docker compose --profile postgres up -d postgres
+export FEME_DB_BACKEND=postgres
+export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+.venv/bin/python -m pytest -q tests/test_v07_postgres_live_integration.py tests/test_postgres_load_smoke.py tests/test_postgres_concurrency_smoke.py
+
+Python version:
+3.10.19 (main, Oct  9 2025, 15:25:03) [Clang 17.0.0 (clang-1700.0.13.3)]
+
+psycopg version:
+3.3.4
+
+Postgres container status:
+NAME                                                    IMAGE         COMMAND                   SERVICE    CREATED       STATUS                 PORTS
+fluid_evidence_memory_engine_v0_6_postgres-postgres-1   postgres:16   "docker-entrypoint.s..."   postgres   2 hours ago   Up 2 hours (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+
+pytest result:
+..........ss                                                             [100%]
+10 passed, 2 skipped in 2.12s
+
+Known limitations:
+This proves Docker-backed integration, load, and concurrency smoke tests for the included suite. It does not prove high-scale production behavior.

@@ -7,34 +7,34 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from . import __version__
+from .answer_builder import GroundedAnswerBuilder
+from .backup import BackupManager
+from .citations import CitationManager
+from .claim_canonicalizer import ClaimCanonicalizer
 from .claim_extractor import extract_candidates_for_evidence
 from .config import get_settings
-from .extractors import build_default_registry
+from .consolidation import MemoryConsolidator
 from .context_builder import ContextBuilder
 from .contradiction import ContradictionEngine
 from .evidence import EvidenceIngestor
 from .export_import import ProjectExporter
+from .extractors import build_default_registry
+from .integrity import IntegrityChecker
+from .ledger import MemoryLedger
 from .lifecycle import MemoryLifecycleManager
-from .retrieval import RetrievalPlanner
-from .verifier import AnswerVerifier
-from .write_governor import MemoryWriteGovernor
+from .maintenance import MaintenanceManager
 from .projects import ProjectManager
 from .provenance import ProvenanceGraph
-from .backup import BackupManager
+from .retention import RetentionManager
+from .retrieval import RetrievalPlanner
+from .retrieval_eval_suite import RetrievalEvalSuite
 from .review import ReviewQueue
-from .integrity import IntegrityChecker
+from .runtime import make_database, runtime_health
+from .runtime_pipeline import TransactionalIngestionPipeline
 from .source_registry import SourceRegistry
 from .temporal import TimelineManager
-from .citations import CitationManager
-from .consolidation import MemoryConsolidator
-from .retention import RetentionManager
-from .maintenance import MaintenanceManager
-from .answer_builder import GroundedAnswerBuilder
-from .runtime_pipeline import TransactionalIngestionPipeline
-from .ledger import MemoryLedger
-from .claim_canonicalizer import ClaimCanonicalizer
-from .retrieval_eval_suite import RetrievalEvalSuite
-from .runtime import make_database, runtime_health
+from .verifier import AnswerVerifier
+from .write_governor import MemoryWriteGovernor
 
 app = FastAPI(title="Fluid Evidence Memory Engine", version=__version__)
 settings = get_settings()

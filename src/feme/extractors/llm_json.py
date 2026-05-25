@@ -13,6 +13,7 @@ Raises
 LLMExtractorNotConfiguredError
     When ``FEME_EXTRACTOR_API_KEY`` is absent or empty.
 """
+
 from __future__ import annotations
 
 import json

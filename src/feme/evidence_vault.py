@@ -21,7 +21,9 @@ class EvidenceVault:
         self.objects.mkdir(parents=True, exist_ok=True)
         self.manifests.mkdir(parents=True, exist_ok=True)
 
-    def store_file(self, path: str | Path, sha256_hex: str, metadata: dict | None = None) -> dict:
+    def store_file(
+        self, path: str | Path, sha256_hex: str, metadata: dict | None = None
+    ) -> dict:
         src = Path(path)
         if not src.exists():
             raise FileNotFoundError(src)
@@ -37,7 +39,9 @@ class EvidenceVault:
             "metadata": metadata or {},
             "stored_at": now_iso(),
         }
-        (self.manifests / f"{manifest['id']}.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        (self.manifests / f"{manifest['id']}.json").write_text(
+            json.dumps(manifest, indent=2), encoding="utf-8"
+        )
         return manifest
 
     def _object_path(self, sha256_hex: str, suffix: str = "") -> Path:

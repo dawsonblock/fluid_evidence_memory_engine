@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import os
+from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
 
+from feme.evidence import EvidenceIngestor
 from feme.export_import import ProjectExporter
 from feme.integrity import IntegrityChecker
 from feme.ledger import MemoryLedger
@@ -15,7 +16,6 @@ from feme.retention import RetentionManager
 from feme.retrieval import RetrievalPlanner
 from feme.runtime import make_database, runtime_health
 from feme.runtime_pipeline import TransactionalIngestionPipeline
-from feme.evidence import EvidenceIngestor
 from feme.source_registry import SourceRegistry
 
 
@@ -60,6 +60,7 @@ def test_postgres_governed_ingest_retrieve_and_ledger_verify(
         "0.8.0",
         "0.8.1",
         "0.8.2",
+        "0.8.3",
     }
 
     text = (
@@ -124,6 +125,7 @@ def test_postgres_init_and_migrate(postgres_db):
         "0.8.0",
         "0.8.1",
         "0.8.2",
+        "0.8.3",
     }
 
 

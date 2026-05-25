@@ -1,4 +1,5 @@
 """Tests for SentenceTransformersEmbeddingProvider in feme.embeddings."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -17,6 +18,7 @@ HAS_ST = importlib.util.find_spec("sentence_transformers") is not None
 # Attribute / interface tests (always run, no model download needed)
 # ---------------------------------------------------------------------------
 
+
 def test_provider_name():
     p = SentenceTransformersEmbeddingProvider()
     assert p.name == "sentence-transformers"
@@ -24,7 +26,7 @@ def test_provider_name():
 
 def test_provider_version():
     p = SentenceTransformersEmbeddingProvider()
-    assert p.version == "0.8.2"
+    assert p.version == "0.8.3"
 
 
 def test_default_model_name():
@@ -90,6 +92,7 @@ def test_get_from_registry():
 # ImportError path (only if sentence-transformers is NOT installed)
 # ---------------------------------------------------------------------------
 
+
 def test_embed_text_raises_import_error_when_not_installed(monkeypatch):
     real_find_spec = importlib.util.find_spec
 
@@ -119,9 +122,8 @@ def test_dimensions_custom_default():
 # Live tests (only if sentence-transformers IS installed)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(
-    not HAS_ST, reason="sentence-transformers not installed"
-)
+
+@pytest.mark.skipif(not HAS_ST, reason="sentence-transformers not installed")
 def test_embed_text_returns_list_of_floats():
     p = SentenceTransformersEmbeddingProvider()
     result = p.embed_text("FEME stores memory in PostgreSQL.")
@@ -129,20 +131,17 @@ def test_embed_text_returns_list_of_floats():
     assert all(isinstance(v, float) for v in result)
 
 
-@pytest.mark.skipif(
-    not HAS_ST, reason="sentence-transformers not installed"
-)
+@pytest.mark.skipif(not HAS_ST, reason="sentence-transformers not installed")
 def test_embed_text_returns_correct_dimensions():
     p = SentenceTransformersEmbeddingProvider()
     result = p.embed_text("test")
     assert len(result) == p.dimensions
 
 
-@pytest.mark.skipif(
-    not HAS_ST, reason="sentence-transformers not installed"
-)
+@pytest.mark.skipif(not HAS_ST, reason="sentence-transformers not installed")
 def test_normalized_vector_unit_length():
     import math
+
     p = SentenceTransformersEmbeddingProvider(normalize=True)
     vec = p.embed_text("normalization test")
     norm = math.sqrt(sum(v * v for v in vec))

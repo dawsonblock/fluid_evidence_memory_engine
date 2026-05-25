@@ -66,16 +66,41 @@ class MemoryPolicy:
             return base
         raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
         return cls(
-            durable_save_threshold=float(raw.get("durable_save_threshold", base.durable_save_threshold)),
-            session_save_threshold=float(raw.get("session_save_threshold", base.session_save_threshold)),
-            human_review_privacy_threshold=float(raw.get("human_review_privacy_threshold", base.human_review_privacy_threshold)),
-            explicit_override_threshold=float(raw.get("explicit_override_threshold", base.explicit_override_threshold)),
-            near_duplicate_threshold=float(raw.get("near_duplicate_threshold", base.near_duplicate_threshold)),
-            inference_review_source_quality=float(raw.get("inference_review_source_quality", base.inference_review_source_quality)),
+            durable_save_threshold=float(
+                raw.get("durable_save_threshold", base.durable_save_threshold)
+            ),
+            session_save_threshold=float(
+                raw.get("session_save_threshold", base.session_save_threshold)
+            ),
+            human_review_privacy_threshold=float(
+                raw.get(
+                    "human_review_privacy_threshold",
+                    base.human_review_privacy_threshold,
+                )
+            ),
+            explicit_override_threshold=float(
+                raw.get("explicit_override_threshold", base.explicit_override_threshold)
+            ),
+            near_duplicate_threshold=float(
+                raw.get("near_duplicate_threshold", base.near_duplicate_threshold)
+            ),
+            inference_review_source_quality=float(
+                raw.get(
+                    "inference_review_source_quality",
+                    base.inference_review_source_quality,
+                )
+            ),
             stale_after_days=int(raw.get("stale_after_days", base.stale_after_days)),
-            salience_decay_per_run=float(raw.get("salience_decay_per_run", base.salience_decay_per_run)),
-            minimum_active_salience=float(raw.get("minimum_active_salience", base.minimum_active_salience)),
-            source_quality={**base.source_quality, **dict(raw.get("source_quality", {}))},
+            salience_decay_per_run=float(
+                raw.get("salience_decay_per_run", base.salience_decay_per_run)
+            ),
+            minimum_active_salience=float(
+                raw.get("minimum_active_salience", base.minimum_active_salience)
+            ),
+            source_quality={
+                **base.source_quality,
+                **dict(raw.get("source_quality", {})),
+            },
             sensitive_terms=tuple(raw.get("sensitive_terms", base.sensitive_terms)),
         )
 
@@ -104,7 +129,16 @@ class MemoryPolicy:
 def _legacy_privacy_score(text: str) -> float:
     lowered = text.lower()
     score = 0.0
-    for marker in ["password", "medical", "diagnosis", "sin", "social insurance", "address", "credit card", "bank"]:
+    for marker in [
+        "password",
+        "medical",
+        "diagnosis",
+        "sin",
+        "social insurance",
+        "address",
+        "credit card",
+        "bank",
+    ]:
         if marker in lowered:
             score += 0.2
     return clamp(score, 0.0, 1.0)

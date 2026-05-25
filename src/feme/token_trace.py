@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -41,7 +40,9 @@ class Tokenizer:
     def count(self, text: str) -> int:
         return len(self.tokenize(text))
 
-    def slice_by_token_range(self, tokens: list[Token], start: int, end: int) -> tuple[int, int]:
+    def slice_by_token_range(
+        self, tokens: list[Token], start: int, end: int
+    ) -> tuple[int, int]:
         selected = tokens[start:end]
         if not selected:
             return 0, 0

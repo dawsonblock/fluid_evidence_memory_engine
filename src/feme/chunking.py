@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 from .token_trace import Tokenizer
 
 
@@ -15,7 +16,9 @@ class ChunkSpec:
     token_count: int
 
 
-def chunk_text(text: str, tokenizer: Tokenizer, max_tokens: int = 900, overlap_tokens: int = 120) -> list[ChunkSpec]:
+def chunk_text(
+    text: str, tokenizer: Tokenizer, max_tokens: int = 900, overlap_tokens: int = 120
+) -> list[ChunkSpec]:
     tokens = tokenizer.tokenize(text)
     if not tokens:
         return []
@@ -29,7 +32,9 @@ def chunk_text(text: str, tokenizer: Tokenizer, max_tokens: int = 900, overlap_t
         end = min(start + max_tokens, len(tokens))
         char_start, char_end = tokenizer.slice_by_token_range(tokens, start, end)
         chunk = text[char_start:char_end]
-        chunks.append(ChunkSpec(idx, char_start, char_end, start, end, chunk, end - start))
+        chunks.append(
+            ChunkSpec(idx, char_start, char_end, start, end, chunk, end - start)
+        )
         if end >= len(tokens):
             break
         start = max(0, end - overlap_tokens)

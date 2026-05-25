@@ -4,7 +4,13 @@ from .embeddings import HashingEmbedder, cosine
 from .models import RetrievalResult
 
 
-def diversify_results(query: str, results: list[RetrievalResult], *, top_k: int, lambda_relevance: float = 0.78) -> list[RetrievalResult]:
+def diversify_results(
+    query: str,
+    results: list[RetrievalResult],
+    *,
+    top_k: int,
+    lambda_relevance: float = 0.78,
+) -> list[RetrievalResult]:
     """Maximal marginal relevance reranker.
 
     It keeps high-scoring results, but penalizes near-duplicate chunks/claims so the context packet

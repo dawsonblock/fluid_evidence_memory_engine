@@ -6,13 +6,13 @@ These tests assert the externally visible contract:
   - heuristic mode: always writes claims
   - json_strict with invalid quote: zero claims written
 """
+
 from pathlib import Path
 
 from feme.claim_extractor import extract_candidates_for_evidence
 from feme.db import Database
 from feme.evidence import EvidenceIngestor
 from feme.write_governor import MemoryWriteGovernor
-
 
 _TEXT = "FEME must use PostgreSQL as canonical memory."
 
@@ -57,8 +57,12 @@ def test_json_strict_without_provider_writes_no_claims(tmp_path: Path):
         extractor_mode="json_strict",
         extractor_provider="missing-provider",
     )
-    assert candidates == [], "json_strict with no provider must return empty candidate list"
-    assert _claim_count(db) == 0, "json_strict with no provider must write zero memory_claims"
+    assert (
+        candidates == []
+    ), "json_strict with no provider must return empty candidate list"
+    assert (
+        _claim_count(db) == 0
+    ), "json_strict with no provider must write zero memory_claims"
 
 
 def test_json_strict_without_provider_records_strict_rejected(tmp_path: Path):
@@ -85,7 +89,9 @@ def test_json_with_fallback_without_provider_uses_heuristic(tmp_path: Path):
         extractor_mode="json_with_fallback",
         extractor_provider="missing-provider",
     )
-    assert candidates, "json_with_fallback must produce candidates via heuristic fallback"
+    assert (
+        candidates
+    ), "json_with_fallback must produce candidates via heuristic fallback"
     audit = _latest_audit(db, evidence_id)
     assert audit
     assert audit["outcome"] == "heuristic_fallback"
@@ -132,8 +138,12 @@ def test_json_strict_invalid_quote_writes_no_claims(tmp_path: Path):
             ]
         },
     )
-    assert candidates == [], "json_strict with quote mismatch must return empty candidate list"
-    assert _claim_count(db) == 0, "json_strict with quote mismatch must write zero memory_claims"
+    assert (
+        candidates == []
+    ), "json_strict with quote mismatch must return empty candidate list"
+    assert (
+        _claim_count(db) == 0
+    ), "json_strict with quote mismatch must write zero memory_claims"
     audit = _latest_audit(db, evidence_id)
     assert audit
     assert audit["outcome"] == "strict_rejected"

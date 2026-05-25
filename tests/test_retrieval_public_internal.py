@@ -5,6 +5,7 @@ Verifies:
 - Internal mode can see all claims including pending_review ones.
 - pending_review_leak_rate is always 0.0 after public-mode queries.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

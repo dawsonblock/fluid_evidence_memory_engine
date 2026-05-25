@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 
-from .db import Database, SCHEMA_VERSION
+from .db import SCHEMA_VERSION, Database
 from .utils import now_iso
 
 V05_SQL = """

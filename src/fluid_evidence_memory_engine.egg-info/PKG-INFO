@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fluid-evidence-memory-engine
-Version: 0.8.2
+Version: 0.8.3
 Summary: Token-anchored claim memory with evidence links, lifecycle control, verification, review workflow, source governance, citation packets, retention, auditable retrieval, runtime storage adapters, migrations, ledger governance, and a runnable PostgreSQL backend.
 Author: Dawson Block
 Requires-Python: >=3.10
@@ -35,7 +35,7 @@ Requires-Dist: sentence-transformers>=2.7; extra == "semantic"
 
 Token-anchored, claim-based long-context memory with strict evidence provenance, review governance, and dual runtime support (SQLite + PostgreSQL).
 
-FEME v0.8.2 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
+FEME v0.8.3 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
 
 > Raw sources are authoritative. Claims are structured interpretations. Summaries are disposable. Embeddings are retrieval helpers only.
 
@@ -388,7 +388,7 @@ tests/
 
 ## Current Status
 
-FEME v0.8.2 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
+FEME v0.8.3 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
 
 Implemented:
 

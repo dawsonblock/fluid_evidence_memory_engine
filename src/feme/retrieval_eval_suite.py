@@ -29,18 +29,31 @@ class RetrievalEvalSuite:
                 (id, project_id, query, expected_claim_ids_json, expected_terms_json, created_at, metadata_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (case_id, project_id, query, json_dumps(expected_claim_ids or []), json_dumps(expected_terms or []), now_iso(), json_dumps(metadata or {})),
+                (
+                    case_id,
+                    project_id,
+                    query,
+                    json_dumps(expected_claim_ids or []),
+                    json_dumps(expected_terms or []),
+                    now_iso(),
+                    json_dumps(metadata or {}),
+                ),
             )
             con.commit()
         return {"id": case_id, "project_id": project_id, "query": query}
 
     def list_cases(self, *, project_id: str = "default") -> list[dict]:
         with self.db.connect() as con:
-            rows = con.execute("SELECT * FROM retrieval_eval_cases WHERE project_id = ? ORDER BY created_at", (project_id,)).fetchall()
+            rows = con.execute(
+                "SELECT * FROM retrieval_eval_cases WHERE project_id = ? ORDER BY created_at",
+                (project_id,),
+            ).fetchall()
         out: list[dict] = []
         for row in rows:
             item = dict(row)
-            item["expected_claim_ids"] = json.loads(item.pop("expected_claim_ids_json") or "[]")
+            item["expected_claim_ids"] = json.loads(
+                item.pop("expected_claim_ids_json") or "[]"
+            )
             item["expected_terms"] = json.loads(item.pop("expected_terms_json") or "[]")
             item["metadata"] = json.loads(item.pop("metadata_json") or "{}")
             out.append(item)
