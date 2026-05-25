@@ -33,7 +33,9 @@ class GroundedAnswerBuilder:
             retrieval_mode=retrieval_mode,
             include_pending_review=include_pending_review,
         )
-        citations = CitationManager(self.db).citations_for_context(packet, persist=True)
+        citations = CitationManager(self.db).citations_for_context(
+            packet, persist=True
+        )
         claim_lines = []
         warnings = list(packet.warnings)
         saw_pending_review = False
@@ -59,7 +61,9 @@ class GroundedAnswerBuilder:
                     "claim_id": item.get("claim_id"),
                     "text": item.get("text"),
                     "status": status,
-                    "confidence": (item.get("metadata") or {}).get("confidence"),
+                    "confidence": (item.get("metadata") or {}).get(
+                        "confidence"
+                    ),
                     "source_quality": source_quality,
                     "citations": labels,
                 }
@@ -93,7 +97,12 @@ class GroundedAnswerBuilder:
                     saw_unknown_kind = True
                 if support_relation == "contradicts":
                     saw_contradiction = True
-            if saw_inference and saw_summary and saw_contradiction and saw_unknown_kind:
+            if (
+                saw_inference
+                and saw_summary
+                and saw_contradiction
+                and saw_unknown_kind
+            ):
                 break
         if saw_inference:
             warnings.append(
@@ -101,11 +110,13 @@ class GroundedAnswerBuilder:
             )
         if saw_summary:
             warnings.append(
-                "Includes summary-derived claims; verify against direct supporting evidence before publication."
+                "Includes summary-derived claims; verify against direct "
+                "supporting evidence before publication."
             )
         if saw_contradiction:
             warnings.append(
-                "Includes contradictory support relations; resolve conflict status before publication."
+                "Includes contradictory support relations; resolve conflict "
+                "status before publication."
             )
         if saw_unknown_kind:
             warnings.append(
@@ -125,7 +136,8 @@ class GroundedAnswerBuilder:
         }
         if unsupported_count:
             warnings.append(
-                "One or more answer sentences are missing citations; block publication until every sentence is grounded."
+                "One or more answer sentences are missing citations; block "
+                "publication until every sentence is grounded."
             )
         return {
             "question": question,
@@ -136,7 +148,10 @@ class GroundedAnswerBuilder:
             "citations": citations,
             "sentence_citation_checks": sentence_checks,
             "citation_verification": citation_verification,
-            "drafting_instruction": "Answer only from the listed claims/citations. Mark unsupported or contradicted points explicitly.",
+            "drafting_instruction": (
+                "Answer only from the listed claims/citations. Mark "
+                "unsupported or contradicted points explicitly."
+            ),
         }
 
 

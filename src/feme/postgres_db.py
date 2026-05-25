@@ -6,7 +6,9 @@ from typing import Any, Iterable
 
 from .utils import now_iso
 
-ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "postgres_schema.sql"
+ROOT_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2] / "sql" / "postgres_schema.sql"
+)
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "postgres_schema.sql"
 POSTGRES_SCHEMA_VERSION = "0.8.5"
 
@@ -45,7 +47,9 @@ class PostgresDatabase:
 
     def init(self) -> None:
         schema_path = (
-            ROOT_SCHEMA_PATH if ROOT_SCHEMA_PATH.exists() else PACKAGE_SCHEMA_PATH
+            ROOT_SCHEMA_PATH
+            if ROOT_SCHEMA_PATH.exists()
+            else PACKAGE_SCHEMA_PATH
         )
         schema = schema_path.read_text(encoding="utf-8")
         with self.connect() as con:
@@ -72,7 +76,9 @@ class PostgresDatabase:
         try:
             from .source_registry import SourceRegistry
 
-            SourceRegistry(self).ensure_defaults(project_id="default")
+            SourceRegistry(self).ensure_defaults(  # type: ignore[arg-type]
+                project_id="default"
+            )
         except Exception:
             # Keep init deterministic even if defaults fail; runtime-health and
             # integrity checks expose registry issues.
@@ -82,7 +88,8 @@ class PostgresDatabase:
         try:
             with self.connect() as con:
                 row = con.execute(
-                    "SELECT value FROM schema_meta WHERE key = ?", ("schema_version",)
+                    "SELECT value FROM schema_meta WHERE key = ?",
+                    ("schema_version",),
                 ).fetchone()
             return row["value"] if row else None
         except Exception:
@@ -107,7 +114,7 @@ class PostgresConnection:
 
     def execute(
         self, sql: str, params: Iterable[Any] | None = None
-    ) -> "PostgresCursor":
+    ) -> "PostgresCursor | EmptyCursor":
         rewritten = rewrite_sql_for_postgres(sql)
         if rewritten is None:
             return EmptyCursor()
@@ -190,12 +197,21 @@ def rewrite_sql_for_postgres(sql: str) -> str | None:
 
     out = stripped.rstrip(";")
 
-    if re.match(r"^INSERT\s+OR\s+REPLACE\s+INTO\s+schema_meta\b", out, flags=re.I):
-        out = re.sub(r"^INSERT\s+OR\s+REPLACE\s+INTO", "INSERT INTO", out, flags=re.I)
+    if re.match(
+        r"^INSERT\s+OR\s+REPLACE\s+INTO\s+schema_meta\b", out, flags=re.I
+    ):
+        out = re.sub(
+            r"^INSERT\s+OR\s+REPLACE\s+INTO", "INSERT INTO", out, flags=re.I
+        )
         if "ON CONFLICT" not in out.upper():
-            out += " ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
+            out += (
+                " ON CONFLICT (key) DO UPDATE SET "
+                "value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
+            )
     elif re.match(r"^INSERT\s+OR\s+IGNORE\s+INTO\b", out, flags=re.I):
-        out = re.sub(r"^INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", out, flags=re.I)
+        out = re.sub(
+            r"^INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", out, flags=re.I
+        )
         if "ON CONFLICT" not in out.upper():
             out += " ON CONFLICT DO NOTHING"
 
@@ -295,10 +311,12 @@ def split_sql_script(script: str) -> list[str]:
             in_double = not in_double
         elif not in_single and not in_double and ch == "$":
             j = i + 1
-            while j < len(script) and (script[j].isalnum() or script[j] == "_"):
+            while j < len(script) and (
+                script[j].isalnum() or script[j] == "_"
+            ):
                 j += 1
             if j < len(script) and script[j] == "$":
-                dollar_tag = script[i : j + 1]
+                dollar_tag = script[i:j + 1]
                 current.extend(dollar_tag)
                 i = j + 1
                 continue

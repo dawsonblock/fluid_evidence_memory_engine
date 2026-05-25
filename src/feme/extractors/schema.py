@@ -116,8 +116,12 @@ def validate_extraction_payload(
             char_start = entry["support_char_start"]
             char_end = entry["support_char_end"]
         else:
-            char_start = evidence_span["char_start"]
-            char_end = evidence_span["char_end"]
+            if not isinstance(evidence_span, dict):
+                return False, f"claim[{idx}]_missing_support_char_start"
+            char_start = evidence_span.get("char_start")
+            char_end = evidence_span.get("char_end")
+            if not isinstance(char_start, int) or not isinstance(char_end, int):
+                return False, f"claim[{idx}]_missing_support_char_start"
         if char_start < 0:
             return False, f"claim[{idx}]_support_char_start_negative"
         if char_end <= char_start:

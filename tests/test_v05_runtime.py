@@ -49,7 +49,11 @@ def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
     assert store.capabilities().transactions is True
     with store.transaction() as con:
         con.execute(
-            "INSERT OR IGNORE INTO projects (id, name, created_at, updated_at, metadata_json) VALUES (?, ?, ?, ?, ?)",
+            (
+                "INSERT OR IGNORE INTO projects "
+                "(id, name, created_at, updated_at, metadata_json) "
+                "VALUES (?, ?, ?, ?, ?)"
+            ),
             ("tx", "tx", "now", "now", "{}"),
         )
     rows = store.execute("SELECT id FROM projects WHERE id = ?", ("tx",))
@@ -59,7 +63,11 @@ def test_v05_schema_migration_runtime_health_and_store(tmp_path: Path):
 def test_governed_ingestion_writes_ledger_and_clusters(tmp_path: Path):
     db = _db(tmp_path)
     result = TransactionalIngestionPipeline(db).ingest_text(
-        "Memory system should use PostgreSQL. Memory system should link claims to spans. Contact owner@example.com for audit details. The review happened on March 4, 2024.",
+        (
+            "Memory system should use PostgreSQL. Memory system should "
+            "link claims to spans. Contact owner@example.com for audit "
+            "details. The review happened on March 4, 2024."
+        ),
         source_type="official_record",
         title="runtime sample",
         actor="test",

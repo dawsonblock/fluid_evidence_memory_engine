@@ -176,7 +176,7 @@ def test_malformed_json_repaired_successfully(tmp_path: Path):
 def test_malformed_json_repair_failure(tmp_path: Path):
     db = _db(tmp_path)
     evidence_id = _ingest(db)
-    provider = FakeStructuredProvider(["{broken", "still not json", "also bad"]) 
+    provider = FakeStructuredProvider(["{broken", "still not json", "also bad"])
     candidates = extract_candidates_for_evidence(
         db,
         evidence_id,
@@ -305,7 +305,7 @@ def test_evidence_kind_labels_and_contradiction_relation_preserved(tmp_path: Pat
                         "object": "the previous SQLite-only claim",
                         "claim_text": "This contradicts the previous SQLite-only claim.",
                         "support_char_start": 22,
-                            "support_char_end": 70,
+                        "support_char_end": 70,
                         "support_quote_text": "This contradicts the previous SQLite-only claim.",
                         "evidence_kind": "inference",
                         "support_relation": "contradicts",

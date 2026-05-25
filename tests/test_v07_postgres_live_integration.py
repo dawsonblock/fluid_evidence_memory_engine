@@ -23,7 +23,8 @@ def _live_postgres_dsn() -> str:
     dsn = os.getenv("FEME_TEST_POSTGRES_DSN") or os.getenv("FEME_POSTGRES_DSN")
     if not dsn:
         pytest.skip(
-            "set FEME_TEST_POSTGRES_DSN (or FEME_POSTGRES_DSN) to run live Postgres integration tests"
+            "set FEME_TEST_POSTGRES_DSN (or FEME_POSTGRES_DSN) "
+            "to run live Postgres integration tests"
         )
     return dsn
 
@@ -92,7 +93,10 @@ def test_postgres_governed_ingest_retrieve_and_ledger_verify(
     assert fts["claims_indexed"] >= 1
     with postgres_db.connect() as con:
         row = con.execute(
-            "SELECT COUNT(*) AS n FROM memory_claims WHERE project_id = ? AND claim_tsv IS NOT NULL",
+            (
+                "SELECT COUNT(*) AS n FROM memory_claims "
+                "WHERE project_id = ? AND claim_tsv IS NOT NULL"
+            ),
             (project_id,),
         ).fetchone()
         chunk_row = con.execute(

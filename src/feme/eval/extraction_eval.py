@@ -81,11 +81,17 @@ def _claim_match_score(expected: dict[str, Any], actual: Any) -> int:
     expected_subject = _normalize_text(expected.get("subject"))
     expected_predicate = _normalize_text(expected.get("predicate"))
     expected_object = _normalize_text(expected.get("object"))
-    if expected_subject and expected_subject == _normalize_text(getattr(actual, "subject", None)):
+    if expected_subject and expected_subject == _normalize_text(
+        getattr(actual, "subject", None)
+    ):
         score += 1
-    if expected_predicate and expected_predicate == _normalize_text(getattr(actual, "predicate", None)):
+    if expected_predicate and expected_predicate == _normalize_text(
+        getattr(actual, "predicate", None)
+    ):
         score += 1
-    if expected_object and expected_object == _normalize_text(getattr(actual, "object", None)):
+    if expected_object and expected_object == _normalize_text(
+        getattr(actual, "object", None)
+    ):
         score += 1
     return score
 
@@ -133,14 +139,23 @@ def _span_debug_reason(
     actual_quote: Any,
     source_text: str,
 ) -> str:
-    if actual_quote != expected_quote and actual_start == expected_start and actual_end == expected_end:
+    if (
+        actual_quote != expected_quote
+        and actual_start == expected_start
+        and actual_end == expected_end
+    ):
         return "quote_mismatch"
     if actual_start != expected_start or actual_end != expected_end:
         if (
             isinstance(actual_start, int)
             and isinstance(actual_end, int)
             and isinstance(actual_quote, str)
-            and not validate_span(source_text, actual_start, actual_end, actual_quote)
+            and not validate_span(
+                source_text,
+                actual_start,
+                actual_end,
+                actual_quote,
+            )
         ):
             return "offset_mismatch_and_invalid_slice"
         return "offset_mismatch"
@@ -148,7 +163,12 @@ def _span_debug_reason(
         isinstance(actual_start, int)
         and isinstance(actual_end, int)
         and isinstance(actual_quote, str)
-        and not validate_span(source_text, actual_start, actual_end, actual_quote)
+        and not validate_span(
+            source_text,
+            actual_start,
+            actual_end,
+            actual_quote,
+        )
     ):
         return "span_invalid"
     return "none"
@@ -236,7 +256,9 @@ def evaluate_extraction_fixture(
         text = str(row.get("text") or "")
         expected = _expected_claims(row)
         min_count, max_count = _expected_count_bounds(row, expected)
-        expect_strict_rejection = bool(row.get("expect_strict_rejection", False))
+        expect_strict_rejection = bool(
+            row.get("expect_strict_rejection", False)
+        )
         structured_payload = row.get("structured_payload")
 
         chunk = {
@@ -286,12 +308,18 @@ def evaluate_extraction_fixture(
                         "case_id": case_id,
                         "source_text": text,
                         "expected_claims": expected,
-                        "actual_claims": [_candidate_to_dict(c) for c in actual_claims],
+                        "actual_claims": [
+                            _candidate_to_dict(c) for c in actual_claims
+                        ],
                         "misses": [],
                         "false_positives": [],
                         "span_errors": [],
                         "miss_reason": (
-                            None if not actual_claims else "expected_strict_rejection"
+                            (
+                                None
+                                if not actual_claims
+                                else "expected_strict_rejection"
+                            )
                         ),
                     }
                 )
@@ -313,7 +341,10 @@ def evaluate_extraction_fixture(
                 empty_expected_cases_with_fp += 1
 
         total_expected += len(expected)
-        matched, misses, false_positives = _match_claims(expected, actual_claims)
+        matched, misses, false_positives = _match_claims(
+            expected,
+            actual_claims,
+        )
         total_matched += len(matched)
         total_false_negatives += len(misses)
 
@@ -325,9 +356,15 @@ def evaluate_extraction_fixture(
             actual_end = actual.support_char_end
             actual_quote = actual.support_quote_text
 
-            if isinstance(expected_start, int) and isinstance(expected_end, int):
+            if isinstance(expected_start, int) and isinstance(
+                expected_end,
+                int,
+            ):
                 span_expected_count += 1
-                if actual_start == expected_start and actual_end == expected_end:
+                if (
+                    actual_start == expected_start
+                    and actual_end == expected_end
+                ):
                     span_match_ok += 1
             if isinstance(expected_quote, str):
                 if actual_quote == expected_quote:
@@ -357,12 +394,14 @@ def evaluate_extraction_fixture(
             ):
                 expected_slice = (
                     text[expected_start:expected_end]
-                    if isinstance(expected_start, int) and isinstance(expected_end, int)
+                    if isinstance(expected_start, int)
+                    and isinstance(expected_end, int)
                     else None
                 )
                 actual_slice = (
                     text[actual_start:actual_end]
-                    if isinstance(actual_start, int) and isinstance(actual_end, int)
+                    if isinstance(actual_start, int)
+                    and isinstance(actual_end, int)
                     else None
                 )
                 span_debug.append(
@@ -382,7 +421,8 @@ def evaluate_extraction_fixture(
                             "source_slice": actual_slice,
                         },
                         "span_exact": (
-                            actual_start == expected_start and actual_end == expected_end
+                            actual_start == expected_start
+                            and actual_end == expected_end
                         ),
                         "quote_exact": actual_quote == expected_quote,
                         "reason": _span_debug_reason(
@@ -401,13 +441,18 @@ def evaluate_extraction_fixture(
             start = actual.support_char_start
             end = actual.support_char_end
             quote = actual.support_quote_text
-            if isinstance(start, int) and isinstance(end, int) and isinstance(quote, str):
+            if (
+                isinstance(start, int)
+                and isinstance(end, int)
+                and isinstance(quote, str)
+            ):
                 span_valid_total += 1
                 if validate_span(text, start, end, quote):
                     span_valid_ok += 1
 
         if actual_claims and any(
-            (c.metadata or {}).get("extractor") == "heuristic-v2" for c in actual_claims
+            (c.metadata or {}).get("extractor") == "heuristic-v2"
+            for c in actual_claims
         ):
             fallback_count += 1
 
@@ -441,7 +486,9 @@ def evaluate_extraction_fixture(
                     "case_id": case_id,
                     "source_text": text,
                     "expected_claims": expected,
-                    "actual_claims": [_candidate_to_dict(c) for c in actual_claims],
+                    "actual_claims": [
+                        _candidate_to_dict(c) for c in actual_claims
+                    ],
                     "misses": [
                         {
                             "type": "missing_claim",
@@ -483,16 +530,22 @@ def evaluate_extraction_fixture(
             else 0.0
         ),
         "support_span_exact_match": (
-            span_match_ok / span_expected_count if span_expected_count > 0 else 0.0
+            span_match_ok / span_expected_count
+            if span_expected_count > 0
+            else 0.0
         ),
         "support_quote_exact_match": (
-            quote_match_ok / span_expected_count if span_expected_count > 0 else 0.0
+            quote_match_ok / span_expected_count
+            if span_expected_count > 0
+            else 0.0
         ),
         "support_span_validity_rate": (
             span_valid_ok / span_valid_total if span_valid_total > 0 else 1.0
         ),
         "quote_exact_match": (
-            quote_match_ok / span_expected_count if span_expected_count > 0 else 0.0
+            quote_match_ok / span_expected_count
+            if span_expected_count > 0
+            else 0.0
         ),
         "false_positive_rate": (
             empty_expected_cases_with_fp / empty_expected_cases
@@ -500,7 +553,9 @@ def evaluate_extraction_fixture(
             else 0.0
         ),
         "false_negative_rate": (
-            total_false_negatives / total_expected if total_expected > 0 else 0.0
+            total_false_negatives / total_expected
+            if total_expected > 0
+            else 0.0
         ),
         "precision": precision,
         "recall": recall,
@@ -526,7 +581,9 @@ def evaluate_extraction_fixture(
             else 0.0
         ),
         "support_relation_accuracy": (
-            relation_correct / relation_expected if relation_expected > 0 else 0.0
+            relation_correct / relation_expected
+            if relation_expected > 0
+            else 0.0
         ),
         "invalid_output_rejection": invalid_rejection_ok / case_count,
         "fallback_rate": fallback_count / case_count,

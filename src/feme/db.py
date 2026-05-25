@@ -7,7 +7,9 @@ from typing import Any, Iterable
 
 from .utils import now_iso
 
-ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "sqlite_schema.sql"
+ROOT_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2] / "sql" / "sqlite_schema.sql"
+)
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "sqlite_schema.sql"
 SCHEMA_VERSION = "0.8.5"
 MIGRATION_STATUS_COMPLETE = "complete"
@@ -27,31 +29,45 @@ class Database:
 
     def init(self) -> None:
         schema_path = (
-            ROOT_SCHEMA_PATH if ROOT_SCHEMA_PATH.exists() else PACKAGE_SCHEMA_PATH
+            ROOT_SCHEMA_PATH
+            if ROOT_SCHEMA_PATH.exists()
+            else PACKAGE_SCHEMA_PATH
         )
         schema = schema_path.read_text(encoding="utf-8")
         with self.connect() as con:
             con.executescript(schema)
             now = now_iso()
             con.execute(
-                "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
+                (
+                    "INSERT OR REPLACE INTO schema_meta "
+                    "(key, value, updated_at) VALUES (?, ?, ?)"
+                ),
                 ("schema_version", SCHEMA_VERSION, now),
             )
             con.execute(
-                "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
+                (
+                    "INSERT OR REPLACE INTO schema_meta "
+                    "(key, value, updated_at) VALUES (?, ?, ?)"
+                ),
                 ("migration_status", MIGRATION_STATUS_INCOMPLETE, now),
             )
             con.execute(
-                "INSERT OR IGNORE INTO projects (id, name, description, created_at, updated_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    "INSERT OR IGNORE INTO projects "
+                    "(id, name, description, created_at, updated_at, "
+                    "metadata_json) "
+                    "VALUES (?, ?, ?, ?, ?, ?)"
+                ),
                 ("default", "default", "Default project", now, now, "{}"),
             )
             con.commit()
         # Apply idempotent runtime migrations after the base schema.
         try:
             from .migration_health import sync_migration_health
-            from .migrations import MigrationManager
+            from . import migrations as _migrations
 
-            MigrationManager(self).apply_all()
+            migration_manager = getattr(_migrations, "MigrationManager")
+            migration_manager(self).apply_all()
         except Exception as exc:
             record_migration_failure(self, exc)
             if not _env_flag_enabled("FEME_LENIENT_INIT"):
@@ -59,14 +75,17 @@ class Database:
         else:
             clear_migration_failure(self)
             sync_migration_health(self)
-        # Import here to avoid a module import cycle during schema bootstrapping.
+        # Import here to avoid a module import cycle during schema
+        # bootstrapping.
         try:
             from .source_registry import SourceRegistry
 
             SourceRegistry(self).ensure_defaults(project_id="default")
         except Exception:
-            # Schema initialization should not fail because optional defaults could
-            # not be inserted. Integrity checks will report the missing registry.
+            # Schema initialization should not fail because optional defaults
+            # could
+            # not be inserted.
+            # Integrity checks will report the missing registry.
             pass
 
     def schema_version(self) -> str | None:
@@ -97,7 +116,10 @@ def write_schema_meta(db: Any, values: dict[str, str | None]) -> None:
                 con.execute("DELETE FROM schema_meta WHERE key = ?", (key,))
                 continue
             con.execute(
-                "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
+                (
+                    "INSERT OR REPLACE INTO schema_meta "
+                    "(key, value, updated_at) VALUES (?, ?, ?)"
+                ),
                 (key, value, now),
             )
         con.commit()

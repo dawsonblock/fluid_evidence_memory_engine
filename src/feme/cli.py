@@ -26,7 +26,6 @@ from .integrity import IntegrityChecker
 from .ledger import MemoryLedger
 from .lifecycle import MemoryLifecycleManager
 from .maintenance import MaintenanceManager
-from .migrations import MigrationManager
 from .models import EvaluationCase
 from .projects import ProjectManager
 from .provenance import ProvenanceGraph
@@ -49,11 +48,14 @@ def _db(path: Optional[str]):
 
 
 @app.command()
-def init(db: str = typer.Option(None, help="SQLite DB path or PostgreSQL DSN")):
+def init(
+    db: str = typer.Option(None, help="SQLite DB path or PostgreSQL DSN"),
+):
     database = _db(db)
     database.init()
+    db_path = getattr(database, "path", db or get_settings().db_path)
     print(
-        f"[green]Initialized database:[/green] {getattr(database, 'path', db or get_settings().db_path)}"
+        f"[green]Initialized database:[/green] {db_path}"
     )
 
 
@@ -79,7 +81,9 @@ def ingest_text(
         None,
         help="Extractor schema version (default: claim-extraction-v1)",
     ),
-    vault_root: str = typer.Option(None, help="Optional raw file vault directory"),
+    vault_root: str = typer.Option(
+        None, help="Optional raw file vault directory"
+    ),
 ):
     settings = get_settings()
     if not isinstance(text, str):
@@ -151,9 +155,13 @@ def ingest_text(
             f"[green]Durable writes:[/green] {sum(1 for w in writes if w.matched_claim_id)}"
         )
         if contradictions:
-            print(f"[yellow]Contradictions detected:[/yellow] {len(contradictions)}")
+            print(
+                f"[yellow]Contradictions detected:[/yellow] {len(contradictions)}"
+            )
         if audit_warnings:
-            print(f"[yellow]Extractor audit warnings:[/yellow] {len(audit_warnings)}")
+            print(
+                f"[yellow]Extractor audit warnings:[/yellow] {len(audit_warnings)}"
+            )
 
 
 @app.command("list-claims")
@@ -165,7 +173,11 @@ def list_claims(
     database = _db(db)
     with database.connect() as con:
         rows = con.execute(
-            "SELECT id, subject, predicate, object, status, confidence, salience FROM memory_claims WHERE project_id = ? ORDER BY created_at DESC LIMIT ?",
+            (
+                "SELECT id, subject, predicate, object, status, confidence, "
+                "salience FROM memory_claims WHERE project_id = ? "
+                "ORDER BY created_at DESC LIMIT ?"
+            ),
             (project_id, limit),
         ).fetchall()
     columns = [
@@ -190,7 +202,12 @@ def list_entities(db: str = typer.Option(None), limit: int = 50):
     database = _db(db)
     with database.connect() as con:
         rows = con.execute(
-            "SELECT e.entity_type, e.name, COUNT(m.id) AS mentions FROM entities e LEFT JOIN entity_mentions m ON m.entity_id = e.id GROUP BY e.id ORDER BY mentions DESC LIMIT ?",
+            (
+                "SELECT e.entity_type, e.name, COUNT(m.id) AS mentions "
+                "FROM entities e LEFT JOIN entity_mentions m "
+                "ON m.entity_id = e.id GROUP BY e.id "
+                "ORDER BY mentions DESC LIMIT ?"
+            ),
             (limit,),
         ).fetchall()
     table = Table(title="Entities")
@@ -198,7 +215,9 @@ def list_entities(db: str = typer.Option(None), limit: int = 50):
         table.add_column(col)
     for row in rows:
         table.add_row(
-            str(row["entity_type"]), str(row["name"])[:80], str(row["mentions"])
+            str(row["entity_type"]),
+            str(row["name"])[:80],
+            str(row["mentions"]),
         )
     print(table)
 
@@ -323,7 +342,9 @@ def scan_contradictions(db: str = typer.Option(None)):
 
 
 @app.command("run-decay")
-def run_decay(db: str = typer.Option(None), project_id: str = typer.Option("default")):
+def run_decay(
+    db: str = typer.Option(None), project_id: str = typer.Option("default")
+):
     database = _db(db)
     result = MemoryLifecycleManager(database).run_decay(project_id=project_id)
     print(json.dumps(result, indent=2))
@@ -352,7 +373,10 @@ def eval_case(
 ):
     database = _db(db)
     case = EvaluationCase(
-        id="cli_case", query=query, expected_terms=expected_term, project_id=project_id
+        id="cli_case",
+        query=query,
+        expected_terms=expected_term,
+        project_id=project_id,
     )
     result = RetrievalEvaluator(database).run_case(case, top_k=top_k)
     print(json.dumps(result, indent=2))
@@ -383,9 +407,17 @@ def review_list(
     limit: int = typer.Option(50),
 ):
     database = _db(db)
-    rows = ReviewQueue(database).list_pending(project_id=project_id, limit=limit)
+    rows = ReviewQueue(database).list_pending(
+        project_id=project_id, limit=limit
+    )
     table = Table(title="Pending Review Claims")
-    for col in ["id", "claim_text", "confidence", "source_quality", "support_count"]:
+    for col in [
+        "id",
+        "claim_text",
+        "confidence",
+        "source_quality",
+        "support_count",
+    ]:
         table.add_column(col)
     for row in rows:
         table.add_row(
@@ -418,9 +450,13 @@ def review_action(
 
 
 @app.command("trace-claim")
-def trace_claim(claim_id: str = typer.Argument(...), db: str = typer.Option(None)):
+def trace_claim(
+    claim_id: str = typer.Argument(...), db: str = typer.Option(None)
+):
     database = _db(db)
-    print(json.dumps(ProvenanceGraph(database).trace_claim(claim_id), indent=2))
+    print(
+        json.dumps(ProvenanceGraph(database).trace_claim(claim_id), indent=2)
+    )
 
 
 @app.command("integrity-check")
@@ -428,7 +464,11 @@ def integrity_check(
     db: str = typer.Option(None), project_id: str = typer.Option("default")
 ):
     database = _db(db)
-    print(json.dumps(IntegrityChecker(database).run(project_id=project_id), indent=2))
+    print(
+        json.dumps(
+            IntegrityChecker(database).run(project_id=project_id), indent=2
+        )
+    )
 
 
 @app.command("backup-db")
@@ -449,7 +489,8 @@ def import_project(
     database.init()
     print(
         json.dumps(
-            ProjectExporter(database).import_project(path, replace=replace), indent=2
+            ProjectExporter(database).import_project(path, replace=replace),
+            indent=2,
         )
     )
 
@@ -460,7 +501,11 @@ def source_list(
 ):
     database = _db(db)
     SourceRegistry(database).ensure_defaults(project_id=project_id)
-    print(json.dumps(SourceRegistry(database).list(project_id=project_id), indent=2))
+    print(
+        json.dumps(
+            SourceRegistry(database).list(project_id=project_id), indent=2
+        )
+    )
 
 
 @app.command("source-set")
@@ -494,7 +539,8 @@ def timeline_rebuild(
     database = _db(db)
     print(
         json.dumps(
-            TimelineManager(database).rebuild_project(project_id=project_id), indent=2
+            TimelineManager(database).rebuild_project(project_id=project_id),
+            indent=2,
         )
     )
 
@@ -508,7 +554,8 @@ def timeline_list(
     database = _db(db)
     print(
         json.dumps(
-            TimelineManager(database).list(project_id=project_id, limit=limit), indent=2
+            TimelineManager(database).list(project_id=project_id, limit=limit),
+            indent=2,
         )
     )
 
@@ -524,7 +571,9 @@ def citations(
     packet = ContextBuilder(database).build(question, project_id=project_id)
     print(
         json.dumps(
-            CitationManager(database).citations_for_context(packet, persist=persist),
+            CitationManager(database).citations_for_context(
+                packet, persist=persist
+            ),
             indent=2,
         )
     )
@@ -603,7 +652,9 @@ def retention_history(
     database = _db(db)
     print(
         json.dumps(
-            RetentionManager(database).history(project_id=project_id, limit=limit),
+            RetentionManager(database).history(
+                project_id=project_id, limit=limit
+            ),
             indent=2,
         )
     )
@@ -620,7 +671,7 @@ def maintenance(
 ):
     database = _db(db)
     manager = MaintenanceManager(database)
-    result = {}
+    result: dict[str, object] = {}
     if rebuild_fts:
         result["fts"] = manager.rebuild_fts(project_id=project_id)
     if rebuild_chunk_embeddings:
@@ -638,10 +689,13 @@ def maintenance(
 
 @app.command("migrate")
 def migrate(db: str = typer.Option(None)):
+    from . import migrations as _migrations
+
     database = _db(db)
     database.init()
-    result = MigrationManager(database).apply_all()
-    result["applied_migrations"] = MigrationManager(database).list_applied()
+    migration_manager = getattr(_migrations, "MigrationManager")
+    result = migration_manager(database).apply_all()
+    result["applied_migrations"] = migration_manager(database).list_applied()
     print(json.dumps(result, indent=2))
 
 
@@ -649,7 +703,9 @@ def migrate(db: str = typer.Option(None)):
 def embeddings_rebuild(
     db: str = typer.Option(None, help="SQLite DB path or PostgreSQL DSN"),
     project_id: str = typer.Option("default", help="Project scope"),
-    owner_type: str = typer.Option("chunk", help="Target type: 'chunk' or 'claim'"),
+    owner_type: str = typer.Option(
+        "chunk", help="Target type: 'chunk' or 'claim'"
+    ),
 ):
     """Rebuild all embeddings for the given project and owner type."""
     if not isinstance(project_id, str):
@@ -748,7 +804,8 @@ def ledger_list(
     database.init()
     print(
         json.dumps(
-            MemoryLedger(database).list(project_id=project_id, limit=limit), indent=2
+            MemoryLedger(database).list(project_id=project_id, limit=limit),
+            indent=2,
         )
     )
 
@@ -842,7 +899,9 @@ def eval_suite(
     database.init()
     print(
         json.dumps(
-            RetrievalEvalSuite(database).run(project_id=project_id, top_k=top_k),
+            RetrievalEvalSuite(database).run(
+                project_id=project_id, top_k=top_k
+            ),
             indent=2,
         )
     )
@@ -866,7 +925,8 @@ def eval_extraction(
         False,
         "--verbose",
         help=(
-            "Include per-case expected/actual extraction details in the " "JSON output"
+            "Include per-case expected/actual extraction details in the "
+            "JSON output"
         ),
     ),
     debug: bool = typer.Option(
@@ -899,7 +959,9 @@ def eval_extraction(
     )
     if isinstance(write_report, str):
         Path(write_report).parent.mkdir(parents=True, exist_ok=True)
-        Path(write_report).write_text(json.dumps(result, indent=2), encoding="utf-8")
+        Path(write_report).write_text(
+            json.dumps(result, indent=2), encoding="utf-8"
+        )
     print(json.dumps(result, indent=2))
 
 
@@ -954,7 +1016,9 @@ def postgres_sql_smoke():
         "INSERT OR REPLACE INTO schema_meta (key, value, updated_at) VALUES (?, ?, ?)",
         "UPDATE memory_claims SET salience = MIN(1.0, salience + ?) WHERE id = ?",
     ]
-    print(json.dumps({s: rewrite_sql_for_postgres(s) for s in samples}, indent=2))
+    print(
+        json.dumps({s: rewrite_sql_for_postgres(s) for s in samples}, indent=2)
+    )
 
 
 if __name__ == "__main__":

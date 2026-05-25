@@ -15,7 +15,11 @@ def test_fixture_validator_accepts_project_decisions_fixture():
 def test_fixture_validator_rejects_bad_quote_slice(tmp_path: Path):
     fixture = tmp_path / "bad_fixture.jsonl"
     fixture.write_text(
-        '{"case_id":"c1","text":"abc","expected_claims":[{"claim_text":"ab","char_start":0,"char_end":2,"support_quote_text":"zz"}]}\n',
+        (
+            '{"case_id":"c1","text":"abc","expected_claims":['
+            '{"claim_text":"ab","char_start":0,"char_end":2,'
+            '"support_quote_text":"zz"}]}\n'
+        ),
         encoding="utf-8",
     )
 

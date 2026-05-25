@@ -353,7 +353,9 @@ def extract_candidates_for_evidence(
             extractor_provider,
             extractor_mode,
         )
-        provider = (provider_registry or build_default_registry()).get(provider_label)
+        provider = (
+            provider_registry or build_default_registry()
+        ).get(provider_label)
         fallback_used = outcome == HEURISTIC_FALLBACK
         error_type = _error_type_from_detail(detail)
         extra_provider_meta: dict[str, Any] = {}
@@ -389,7 +391,9 @@ def extract_candidates_for_evidence(
             if require_extractor_audit:
                 raise ExtractorAuditWriteError(str(exc)) from exc
             if audit_warnings is not None:
-                audit_warnings.append(f"audit_write_failed:{exc.__class__.__name__}")
+                audit_warnings.append(
+                    f"audit_write_failed:{exc.__class__.__name__}"
+                )
         candidates.extend(chunk_candidates)
     return candidates
 
@@ -412,7 +416,10 @@ def _structured_candidates_from_json(
 
     # Validate the full payload before per-entry processing when it is a dict
     if isinstance(payload, dict):
-        ok, schema_reason = validate_extraction_payload(payload, source_text=chunk_text)
+        ok, schema_reason = validate_extraction_payload(
+            payload,
+            source_text=chunk_text,
+        )
         if not ok:
             invalid_reason = schema_reason
         else:
@@ -509,14 +516,20 @@ def _candidate_from_structured_json(
     support_relation = entry.get("support_relation", "supports")
     legacy_relation = entry.get("evidence_relation")
 
-    if isinstance(legacy_relation, str) and legacy_relation in _VALID_EVIDENCE_KINDS:
+    if (
+        isinstance(legacy_relation, str)
+        and legacy_relation in _VALID_EVIDENCE_KINDS
+    ):
         if "evidence_kind" not in entry:
             evidence_kind = legacy_relation
     elif isinstance(legacy_relation, str) and legacy_relation.strip():
         if "support_relation" not in entry:
             support_relation = legacy_relation
 
-    if not isinstance(evidence_kind, str) or evidence_kind not in _VALID_EVIDENCE_KINDS:
+    if (
+        not isinstance(evidence_kind, str)
+        or evidence_kind not in _VALID_EVIDENCE_KINDS
+    ):
         evidence_kind = "unknown"
     if not isinstance(support_relation, str) or not support_relation.strip():
         support_relation = "supports"
@@ -526,7 +539,9 @@ def _candidate_from_structured_json(
     if char_start is None or char_end is None:
         return None, span_reason or "invalid_schema"
 
-    has_token_span = "support_token_start" in entry or "support_token_end" in entry
+    has_token_span = (
+        "support_token_start" in entry or "support_token_end" in entry
+    )
     token_start, token_end, token_reason = _read_token_span(entry)
     if has_token_span and (token_start is None or token_end is None):
         return None, token_reason or "invalid_schema"
@@ -594,13 +609,19 @@ def _candidate_from_structured_json(
             entry.get("user_explicitness"),
             0.9,
         ),
-        long_term_usefulness=_float_or_default(entry.get("long_term_usefulness"), 0.78),
+        long_term_usefulness=_float_or_default(
+            entry.get("long_term_usefulness"),
+            0.78,
+        ),
         project_relevance=_float_or_default(
             entry.get("project_relevance"),
             0.9,
         ),
         actionability=_float_or_default(entry.get("actionability"), 0.72),
-        contradiction_value=_float_or_default(entry.get("contradiction_value"), 0.0),
+        contradiction_value=_float_or_default(
+            entry.get("contradiction_value"),
+            0.0,
+        ),
         privacy_sensitivity=policy.privacy_sensitivity_for_text(
             claim_text,
         ),
@@ -729,7 +750,9 @@ def _sentence_to_candidate(
 ) -> ClaimCandidate | None:
     lowered = sentence.lower()
     explicitness = 1.0 if any(m in lowered for m in EXPLICIT_MARKERS) else 0.2
-    project_relevance = 0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
+    project_relevance = (
+        0.9 if any(m in lowered for m in PROJECT_MARKERS) else 0.4
+    )
 
     patterns = [
         (r"(.+?)\s+configured\s+to\s+use\s+(.+)", "configured_to_use"),
@@ -744,7 +767,8 @@ def _sentence_to_candidate(
         (r"(.+?)\s+was\s+denied\s+by\s+(.+)", "denied_by"),
         (
             r"(.+?)\s+(should|must)\s+"
-            r"(use|keep|store|link|require|replace|contradict|configure|build)s?\s+(.+)",
+            r"(use|keep|store|link|require|replace|contradict|configure|build)"
+            r"s?\s+(.+)",
             "modal_action",
         ),
         (r"(.+?)\s+requires?\s+(.+)", "requires"),
@@ -819,7 +843,9 @@ def _sentence_to_candidate(
         else None
     )
     support_char_end_abs = (
-        chunk_char_start + support_char_end if support_char_end is not None else None
+        chunk_char_start + support_char_end
+        if support_char_end is not None
+        else None
     )
     chunk_token_start = int(chunk.get("token_start") or 0)
     support_token_start_abs = (
@@ -828,7 +854,9 @@ def _sentence_to_candidate(
         else None
     )
     support_token_end_abs = (
-        chunk_token_start + support_token_end if support_token_end is not None else None
+        chunk_token_start + support_token_end
+        if support_token_end is not None
+        else None
     )
 
     candidate = ClaimCandidate(
@@ -856,7 +884,9 @@ def _sentence_to_candidate(
             )
             else 0.4
         ),
-        contradiction_value=(0.65 if memory_type == MemoryType.correction else 0.0),
+        contradiction_value=(
+            0.65 if memory_type == MemoryType.correction else 0.0
+        ),
         privacy_sensitivity=privacy_sensitivity,
         uncertainty=0.45 if memory_type == MemoryType.inference else 0.18,
         triviality=0.05 if project_relevance >= 0.7 else 0.25,
@@ -1078,7 +1108,9 @@ def _persist_extractor_audit(
             con2.commit()
     except Exception as exc:
         if require_success:
-            raise ExtractorAuditWriteError("extractor audit write failed") from exc
+            raise ExtractorAuditWriteError(
+                "extractor audit write failed"
+            ) from exc
         raise
 
 

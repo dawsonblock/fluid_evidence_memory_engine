@@ -130,7 +130,8 @@ def test_answer_builder_adds_warning_for_inference_summary_contradiction_unknown
 
     monkeypatch.setattr(
         "feme.answer_builder.ContextBuilder.build",
-        lambda self, question, project_id, token_budget, retrieval_mode, include_pending_review: packet,
+        lambda self, question, project_id, token_budget, retrieval_mode,
+        include_pending_review: packet,
     )
     monkeypatch.setattr(
         "feme.answer_builder.CitationManager.citations_for_context",
@@ -142,7 +143,7 @@ def test_answer_builder_adds_warning_for_inference_summary_contradiction_unknown
     )
 
     scaffold = GroundedAnswerBuilder(db=None).build_scaffold("What should FEME use?")
-    warnings = "\n".join(scaffold["warnings"]) 
+    warnings = "\n".join(scaffold["warnings"])
 
     assert "inference-derived" in warnings
     assert "summary-derived" in warnings

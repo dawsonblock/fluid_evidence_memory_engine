@@ -165,8 +165,13 @@ class SentenceTransformersEmbeddingProvider:
     def dimensions(self) -> int:
         if self._model is not None:
             if hasattr(self._model, "get_embedding_dimension"):
-                return self._model.get_embedding_dimension() or self._dimensions
-            return self._model.get_sentence_embedding_dimension() or self._dimensions
+                return (
+                    self._model.get_embedding_dimension() or self._dimensions
+                )
+            return (
+                self._model.get_sentence_embedding_dimension()
+                or self._dimensions
+            )
         return self._dimensions
 
     def _ensure_model(self) -> Any:
@@ -177,7 +182,7 @@ class SentenceTransformersEmbeddingProvider:
                     "SentenceTransformersEmbeddingProvider. Install it with: "
                     "pip install fluid-evidence-memory-engine[semantic]"
                 )
-            import sentence_transformers  # type: ignore[import-untyped]
+            import sentence_transformers  # type: ignore[import-not-found]
 
             kwargs: dict[str, Any] = {}
             if self._device is not None:

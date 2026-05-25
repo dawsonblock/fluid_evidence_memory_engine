@@ -29,8 +29,14 @@ where = ["src"]
 line-length = 100
 target-version = "py310"
 
+[tool.flake8]
+max-line-length = 100
+
+[tool.pycodestyle]
+max-line-length = 100
+
 [tool.setuptools.package-data]
-feme = ["sqlite_schema.sql", "postgres_schema.sql"]
+feme = ["sqlite_schema.sql", "postgres_schema.sql", "py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
