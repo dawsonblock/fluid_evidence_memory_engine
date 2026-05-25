@@ -67,7 +67,7 @@ def test_validate_release_zip_fails_on_empty_archive(tmp_path):
 
     assert proc.returncode != 0
     combined = (proc.stdout + "\n" + proc.stderr).lower()
-    assert "invalid release zip" in combined
+    assert "empty" in combined or "invalid release zip" in combined
 
 
 def test_validate_release_zip_fails_on_corrupt_archive(tmp_path):
@@ -85,4 +85,4 @@ def test_validate_release_zip_fails_on_corrupt_archive(tmp_path):
 
     assert proc.returncode != 0
     combined = (proc.stdout + "\n" + proc.stderr).lower()
-    assert "integrity" in combined
+    assert "corrupt" in combined or "integrity" in combined

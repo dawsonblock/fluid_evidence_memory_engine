@@ -12,17 +12,17 @@ fi
 
 ZIP_PATH="$1"
 if [[ ! -f ${ZIP_PATH} ]]; then
-	echo "ZIP not found: ${ZIP_PATH}" >&2
+	echo "ZIP does not exist: ${ZIP_PATH}" >&2
 	exit 2
 fi
 
 if [[ ! -s ${ZIP_PATH} ]]; then
-	echo "Invalid release ZIP (empty file): ${ZIP_PATH}" >&2
+	echo "ZIP is empty: ${ZIP_PATH}" >&2
 	exit 1
 fi
 
-if ! python3 -m zipfile -t "${ZIP_PATH}" >/dev/null 2>&1; then
-	echo "Invalid release ZIP (failed structural integrity check): ${ZIP_PATH}" >&2
+if ! zip -T "${ZIP_PATH}" >/dev/null 2>&1; then
+	echo "Invalid/corrupt ZIP file: ${ZIP_PATH}" >&2
 	exit 1
 fi
 

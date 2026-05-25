@@ -29,6 +29,16 @@ OUT_DIR="${OUT_DIR:-dist}"
 VERSION_UNDERSCORED="${VERSION//./_}"
 OUT_FILE="${OUT_DIR}/fluid_evidence_memory_engine_v${VERSION_UNDERSCORED}.zip"
 
+BUILD_OK=0
+
+cleanup_partial_zip() {
+	if [[ ${BUILD_OK} -ne 1 ]]; then
+		rm -f "${OUT_FILE}"
+	fi
+}
+
+trap cleanup_partial_zip EXIT
+
 mkdir -p "${OUT_DIR}"
 rm -f "${OUT_FILE}"
 
@@ -55,8 +65,7 @@ find . -name "._*" -delete
 rm -rf __MACOSX
 clean_runtime_databases
 
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1 &&
-	[[ -z "$(git status --porcelain --untracked-files=normal)" ]]; then
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 	# Build from git-tracked content only so local caches/egg-info do not leak.
 	# --worktree-attributes ensures local .gitattributes export-ignore rules apply.
 	git archive --worktree-attributes --format=zip --output "${OUT_FILE}" HEAD
@@ -93,14 +102,18 @@ fi
 
 if [[ ! -s ${OUT_FILE} ]]; then
 	echo "Release ZIP was not created or is empty: ${OUT_FILE}" >&2
+	rm -f "${OUT_FILE}"
 	exit 1
 fi
 
 if ! python3 -m zipfile -t "${OUT_FILE}" >/dev/null 2>&1; then
 	echo "Release ZIP failed structural integrity check: ${OUT_FILE}" >&2
+	rm -f "${OUT_FILE}"
 	exit 1
 fi
 
 bash scripts/validate-release-zip.sh "${OUT_FILE}"
+
+BUILD_OK=1
 
 echo "Created ${OUT_FILE}"

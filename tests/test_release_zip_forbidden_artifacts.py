@@ -49,3 +49,30 @@ def test_release_zip_excludes_forbidden_artifacts():
         ]
 
     assert not bad_entries, f"forbidden artifacts found in {zip_path}: {bad_entries}"
+
+
+def test_validator_accepts_clean_generated_release_zip():
+    root = _repo_root()
+    version = _project_version(root)
+    zip_path = (
+        root / "dist" / f"fluid_evidence_memory_engine_v{version.replace('.', '_')}.zip"
+    )
+
+    subprocess.run(
+        ["bash", "scripts/build-release-zip.sh"],
+        cwd=root,
+        check=True,
+    )
+    assert zip_path.exists(), f"expected release archive missing: {zip_path}"
+
+    proc = subprocess.run(
+        ["bash", "scripts/validate-release-zip.sh", str(zip_path)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0
+    combined = (proc.stdout + "\n" + proc.stderr).lower()
+    assert "release zip artifact check passed" in combined
