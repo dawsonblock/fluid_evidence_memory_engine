@@ -18,7 +18,7 @@ from .config import get_settings
 from .consolidation import MemoryConsolidator
 from .context_builder import ContextBuilder
 from .contradiction import ContradictionEngine
-from .eval import evaluate_extraction_fixture
+from .eval import evaluate_extraction_fixture, validate_extraction_fixture_file
 from .evaluation import RetrievalEvaluator
 from .evidence import EvidenceIngestor
 from .export_import import ProjectExporter
@@ -869,14 +869,35 @@ def eval_extraction(
             "Include per-case expected/actual extraction details in the " "JSON output"
         ),
     ),
+    debug_spans: bool = typer.Option(
+        False,
+        "--debug-spans",
+        help="Include per-case expected vs actual span diagnostics for mismatches",
+    ),
 ):
     result = evaluate_extraction_fixture(
         fixture,
         extractor_mode=extractor_mode,
         extractor_provider=extractor_provider,
         verbose=verbose,
+        debug_spans=debug_spans,
     )
     print(json.dumps(result, indent=2))
+
+
+@app.command("validate-fixture")
+def validate_fixture(
+    fixture: str = typer.Option(
+        "tests/fixtures/extraction/project_decisions.jsonl",
+        help="JSONL fixture path for extraction fixture validation",
+    ),
+):
+    result = validate_extraction_fixture_file(fixture)
+    if result.get("valid"):
+        print("fixture valid")
+        return
+    print(json.dumps(result, indent=2))
+    raise typer.Exit(code=1)
 
 
 @app.command("eval-retrieval")

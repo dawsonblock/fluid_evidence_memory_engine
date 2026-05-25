@@ -7,7 +7,7 @@
 
 Token-anchored, claim-based long-context memory with strict evidence provenance, review governance, and dual runtime support (SQLite + PostgreSQL).
 
-FEME v0.8.3 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
+FEME v0.8.4 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
 
 > Raw sources are authoritative. Claims are structured interpretations. Summaries are disposable. Embeddings are retrieval helpers only.
 
@@ -360,7 +360,7 @@ tests/
 
 ## Current Status
 
-FEME v0.8.3 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
+FEME v0.8.4 is a governed evidence-memory alpha with structured extraction and evaluation foundations. It is not production-grade. The default heuristic extractor remains a quality bottleneck; use evaluation reports before trusting extraction behavior.
 
 Implemented:
 

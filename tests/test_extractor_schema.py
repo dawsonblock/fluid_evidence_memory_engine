@@ -158,7 +158,7 @@ def test_char_end_not_after_start():
         _valid_payload(_valid_claim(support_char_start=10, support_char_end=10))
     )
     assert ok is False
-    assert "support_char_end_not_after_start" in reason
+    assert "zero_length_span" in reason
 
 
 def test_char_end_before_start():
@@ -166,7 +166,7 @@ def test_char_end_before_start():
         _valid_payload(_valid_claim(support_char_start=20, support_char_end=5))
     )
     assert ok is False
-    assert "support_char_end_not_after_start" in reason
+    assert "zero_length_span" in reason
 
 
 # ---------------------------------------------------------------------------

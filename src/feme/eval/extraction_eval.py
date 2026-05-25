@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from ..claim_extractor import extract_candidates_from_chunk
+from ..spans import validate_span
 from ..utils import json_loads
 
 
@@ -25,6 +26,7 @@ def evaluate_extraction_fixture(
     extractor_mode: str = "heuristic",
     extractor_provider: str | None = None,
     verbose: bool = False,
+    debug_spans: bool = False,
 ) -> dict[str, Any]:
     rows = _read_jsonl(Path(fixture_path))
     if not rows:
@@ -33,6 +35,8 @@ def evaluate_extraction_fixture(
             "case_count": 0,
             "claim_count_accuracy": 0.0,
             "support_span_exact_match": 0.0,
+            "support_quote_exact_match": 0.0,
+            "support_span_validity_rate": 0.0,
             "quote_exact_match": 0.0,
             "invalid_output_rejection": 0.0,
             "fallback_rate": 0.0,
@@ -45,10 +49,12 @@ def evaluate_extraction_fixture(
     claim_count_ok = 0
     span_match_ok = 0
     quote_match_ok = 0
+    span_valid_ok = 0
     invalid_rejection_ok = 0
     fallback_count = 0
     strict_rejections = 0
     cases: list[dict[str, Any]] = []
+    span_debug: list[dict[str, Any]] = []
 
     for idx, row in enumerate(rows):
         text = str(row.get("text") or "")
@@ -75,9 +81,9 @@ def evaluate_extraction_fixture(
             def _json_extractor(
                 _text: str,
                 _chunk: dict[str, Any],
-                p: dict[str, Any] = structured_payload,
+                p: dict[str, Any] | None = structured_payload,
             ) -> dict[str, Any]:
-                return p
+                return p or {}
 
             json_extractor = _json_extractor
 
@@ -120,13 +126,71 @@ def evaluate_extraction_fixture(
             e0 = expected_claims[0]
             expected_start = e0.get("char_start")
             expected_end = e0.get("char_end")
+            expected_quote = e0.get("support_quote_text")
+            actual_start = c0.support_char_start
+            actual_end = c0.support_char_end
+            actual_quote = c0.support_quote_text
             if (
-                c0.support_char_start == expected_start
-                and c0.support_char_end == expected_end
+                actual_start == expected_start
+                and actual_end == expected_end
             ):
                 span_match_ok += 1
-            if c0.support_quote_text == e0.get("support_quote_text"):
+            if actual_quote == expected_quote:
                 quote_match_ok += 1
+            if (
+                isinstance(actual_start, int)
+                and isinstance(actual_end, int)
+                and isinstance(actual_quote, str)
+            ):
+                if validate_span(text, actual_start, actual_end, actual_quote):
+                    span_valid_ok += 1
+
+            if debug_spans and (
+                actual_start != expected_start
+                or actual_end != expected_end
+                or actual_quote != expected_quote
+            ):
+                expected_slice = (
+                    text[expected_start:expected_end]
+                    if isinstance(expected_start, int) and isinstance(expected_end, int)
+                    else None
+                )
+                actual_slice = (
+                    text[actual_start:actual_end]
+                    if isinstance(actual_start, int) and isinstance(actual_end, int)
+                    else None
+                )
+                span_debug.append(
+                    {
+                        "case_id": row.get("case_id") or f"case_{idx + 1}",
+                        "source_text": text,
+                        "expected": {
+                            "quote": expected_quote,
+                            "char_start": expected_start,
+                            "char_end": expected_end,
+                            "source_slice": expected_slice,
+                        },
+                        "actual": {
+                            "quote": actual_quote,
+                            "char_start": actual_start,
+                            "char_end": actual_end,
+                            "source_slice": actual_slice,
+                        },
+                        "span_exact": (
+                            actual_start == expected_start and actual_end == expected_end
+                        ),
+                        "quote_exact": actual_quote == expected_quote,
+                        "reason": _span_debug_reason(
+                            expected_start,
+                            expected_end,
+                            expected_quote,
+                            actual_start,
+                            actual_end,
+                            actual_quote,
+                            text,
+                        ),
+                    }
+                )
 
         if candidates and any(
             c.metadata.get("extractor") == "heuristic-v2" for c in candidates
@@ -151,6 +215,8 @@ def evaluate_extraction_fixture(
         "case_count": case_count,
         "claim_count_accuracy": claim_count_ok / case_count,
         "support_span_exact_match": span_match_ok / case_count,
+        "support_quote_exact_match": quote_match_ok / case_count,
+        "support_span_validity_rate": span_valid_ok / case_count,
         "quote_exact_match": quote_match_ok / case_count,
         "invalid_output_rejection": invalid_rejection_ok / case_count,
         "fallback_rate": fallback_count / case_count,
@@ -160,7 +226,39 @@ def evaluate_extraction_fixture(
     }
     if verbose:
         result["cases"] = cases
+    if debug_spans:
+        result["span_debug"] = span_debug
     return result
+
+
+def _span_debug_reason(
+    expected_start: Any,
+    expected_end: Any,
+    expected_quote: Any,
+    actual_start: Any,
+    actual_end: Any,
+    actual_quote: Any,
+    source_text: str,
+) -> str:
+    if actual_quote != expected_quote and actual_start == expected_start and actual_end == expected_end:
+        return "quote_mismatch"
+    if actual_start != expected_start or actual_end != expected_end:
+        if (
+            isinstance(actual_start, int)
+            and isinstance(actual_end, int)
+            and isinstance(actual_quote, str)
+            and not validate_span(source_text, actual_start, actual_end, actual_quote)
+        ):
+            return "offset_mismatch_and_invalid_slice"
+        return "offset_mismatch"
+    if (
+        isinstance(actual_start, int)
+        and isinstance(actual_end, int)
+        and isinstance(actual_quote, str)
+        and not validate_span(source_text, actual_start, actual_end, actual_quote)
+    ):
+        return "span_invalid"
+    return "none"
 
 
 def _serialize_candidates(candidates: list[Any]) -> list[dict[str, Any]]:

@@ -9,6 +9,7 @@ from .db import Database
 from .extractors import ExtractorRegistry, build_default_registry
 from .models import ClaimCandidate, MemoryLevel, MemoryType
 from .policy import MemoryPolicy
+from .spans import repair_span_from_quote, validate_span
 from .token_trace import Tokenizer
 from .utils import json_dumps, new_id, now_iso
 
@@ -174,6 +175,14 @@ def _extract_candidates_with_status(
                     },
                 )
                 payload = _repair_provider_payload_if_needed(payload, provider)
+            payload, span_repair_error = _repair_structured_payload_spans(
+                payload,
+                source_text=text,
+                strict_mode=strict_mode,
+                extractor_config=extractor_config,
+            )
+            if span_repair_error is not None and strict_mode:
+                return [], STRICT_REJECTED, span_repair_error
             structured, invalid_reason = _structured_candidates_from_json(
                 payload,
                 dict(chunk),
@@ -242,6 +251,8 @@ def _heuristic_candidates(
     sentences = _sentence_spans(text)
     tokenized = Tokenizer().tokenize(text)
     out: list[ClaimCandidate] = []
+    chunk_text = str(chunk.get("text") or "")
+    chunk_char_start = int(chunk.get("char_start") or 0)
     for sentence, char_start, char_end in sentences:
         token_start, token_end = _token_range_for_char_span(
             tokenized,
@@ -259,7 +270,13 @@ def _heuristic_candidates(
             extractor_provider=extractor_provider,
         )
         if candidate:
-            out.append(candidate)
+            fixed = _apply_support_span_invariant(
+                candidate,
+                source_text=chunk_text,
+                chunk_char_start=chunk_char_start,
+            )
+            if fixed is not None:
+                out.append(fixed)
     return out
 
 
@@ -563,56 +580,58 @@ def _candidate_from_structured_json(
         }
     )
 
-    return (
-        ClaimCandidate(
-            subject=subject[:240],
-            predicate=predicate[:120],
-            object=obj[:500],
-            claim_text=claim_text,
-            memory_type=memory_type,
-            memory_level=MemoryLevel.project_memory,
-            confidence=_float_or_default(entry.get("confidence"), 0.64),
-            salience=_float_or_default(entry.get("salience"), 0.68),
-            source_quality=source_quality,
-            user_explicitness=_float_or_default(
-                entry.get("user_explicitness"),
-                0.9,
-            ),
-            long_term_usefulness=_float_or_default(
-                entry.get("long_term_usefulness"), 0.78
-            ),
-            project_relevance=_float_or_default(
-                entry.get("project_relevance"),
-                0.9,
-            ),
-            actionability=_float_or_default(entry.get("actionability"), 0.72),
-            contradiction_value=_float_or_default(
-                entry.get("contradiction_value"), 0.0
-            ),
-            privacy_sensitivity=policy.privacy_sensitivity_for_text(
-                claim_text,
-            ),
-            uncertainty=_float_or_default(entry.get("uncertainty"), 0.18),
-            triviality=_float_or_default(entry.get("triviality"), 0.05),
-            short_livedness=_float_or_default(
-                entry.get("short_livedness"),
-                0.05,
-            ),
-            evidence_id=chunk.get("evidence_id"),
-            chunk_id=chunk.get("id"),
-            span_id=chunk.get("span_id"),
-            support_char_start=support_char_start_abs,
-            support_char_end=support_char_end_abs,
-            support_token_start=support_token_start_abs,
-            support_token_end=support_token_end_abs,
-            support_quote_text=quote_text,
-            support_relation=support_relation,
-            evidence_kind=evidence_kind,
-            evidence_relation=evidence_relation,
-            metadata=metadata,
+    candidate = ClaimCandidate(
+        subject=subject[:240],
+        predicate=predicate[:120],
+        object=obj[:500],
+        claim_text=claim_text,
+        memory_type=memory_type,
+        memory_level=MemoryLevel.project_memory,
+        confidence=_float_or_default(entry.get("confidence"), 0.64),
+        salience=_float_or_default(entry.get("salience"), 0.68),
+        source_quality=source_quality,
+        user_explicitness=_float_or_default(
+            entry.get("user_explicitness"),
+            0.9,
         ),
-        None,
+        long_term_usefulness=_float_or_default(entry.get("long_term_usefulness"), 0.78),
+        project_relevance=_float_or_default(
+            entry.get("project_relevance"),
+            0.9,
+        ),
+        actionability=_float_or_default(entry.get("actionability"), 0.72),
+        contradiction_value=_float_or_default(entry.get("contradiction_value"), 0.0),
+        privacy_sensitivity=policy.privacy_sensitivity_for_text(
+            claim_text,
+        ),
+        uncertainty=_float_or_default(entry.get("uncertainty"), 0.18),
+        triviality=_float_or_default(entry.get("triviality"), 0.05),
+        short_livedness=_float_or_default(
+            entry.get("short_livedness"),
+            0.05,
+        ),
+        evidence_id=chunk.get("evidence_id"),
+        chunk_id=chunk.get("id"),
+        span_id=chunk.get("span_id"),
+        support_char_start=support_char_start_abs,
+        support_char_end=support_char_end_abs,
+        support_token_start=support_token_start_abs,
+        support_token_end=support_token_end_abs,
+        support_quote_text=quote_text,
+        support_relation=support_relation,
+        evidence_kind=evidence_kind,
+        evidence_relation=evidence_relation,
+        metadata=metadata,
     )
+
+    fixed = _apply_support_span_invariant(
+        candidate,
+        source_text=chunk_text,
+        chunk_char_start=chunk_char_start,
+    )
+    if fixed is None:
+        return None, "support_span_invalid"
+    return fixed, None
 
 
 def _required_str(entry: dict[str, Any], key: str) -> str | None:
@@ -682,7 +701,8 @@ def _sentence_spans(text: str) -> list[tuple[str, int, int]]:
             right_trimmed = len(text[start:end].rstrip())
             absolute_start = start + left_trimmed
             absolute_end = start + right_trimmed
-            spans.append((sentence, absolute_start, absolute_end))
+            if absolute_end > absolute_start:
+                spans.append((sentence, absolute_start, absolute_end))
         start = match.end()
     tail = text[start:]
     sentence = tail.strip()
@@ -691,7 +711,8 @@ def _sentence_spans(text: str) -> list[tuple[str, int, int]]:
         right_trimmed = len(tail.rstrip())
         absolute_start = start + left_trimmed
         absolute_end = start + right_trimmed
-        spans.append((sentence, absolute_start, absolute_end))
+        if absolute_end > absolute_start:
+            spans.append((sentence, absolute_start, absolute_end))
     return spans
 
 
@@ -786,7 +807,7 @@ def _sentence_to_candidate(
         chunk_token_start + support_token_end if support_token_end is not None else None
     )
 
-    return ClaimCandidate(
+    candidate = ClaimCandidate(
         subject=subject[:240],
         predicate=predicate[:120],
         object=obj[:500],
@@ -843,6 +864,52 @@ def _sentence_to_candidate(
         },
     )
 
+    fixed = _apply_support_span_invariant(
+        candidate,
+        source_text=str(chunk.get("text") or ""),
+        chunk_char_start=int(chunk.get("char_start") or 0),
+    )
+    return fixed
+
+
+def _apply_support_span_invariant(
+    candidate: ClaimCandidate,
+    *,
+    source_text: str,
+    chunk_char_start: int,
+) -> ClaimCandidate | None:
+    quote = candidate.support_quote_text
+    start_abs = candidate.support_char_start
+    end_abs = candidate.support_char_end
+    if not isinstance(quote, str):
+        return None
+    if not isinstance(start_abs, int) or not isinstance(end_abs, int):
+        return None
+
+    rel_start = start_abs - chunk_char_start
+    rel_end = end_abs - chunk_char_start
+    if validate_span(source_text, rel_start, rel_end, quote):
+        return candidate
+
+    match = repair_span_from_quote(source_text, quote)
+    if match is None:
+        return None
+
+    new_start_abs = chunk_char_start + match.char_start
+    new_end_abs = chunk_char_start + match.char_end
+    metadata = dict(candidate.metadata or {})
+    metadata["support_char_start"] = new_start_abs
+    metadata["support_char_end"] = new_end_abs
+    metadata["support_quote_text"] = match.quote
+    return candidate.model_copy(
+        update={
+            "support_char_start": new_start_abs,
+            "support_char_end": new_end_abs,
+            "support_quote_text": match.quote,
+            "metadata": metadata,
+        }
+    )
+
 
 def _guess_subject(sentence: str) -> str:
     words = sentence.split()
@@ -882,6 +949,32 @@ def _extractor_config_hash(
     }
     digest = hashlib.sha256(json_dumps(payload).encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
+
+
+def _repair_structured_payload_spans(
+    payload: Any,
+    *,
+    source_text: str,
+    strict_mode: bool,
+    extractor_config: dict[str, Any] | None,
+) -> tuple[Any, str | None]:
+    if not isinstance(payload, dict):
+        return payload, None
+
+    allow_strict_repair = bool(
+        (extractor_config or {}).get("allow_deterministic_span_repair", False)
+    )
+    if strict_mode and not allow_strict_repair:
+        return payload, None
+
+    from .extractors.repair import repair_payload_span_offsets
+
+    repaired_payload, _repaired_any, reason = repair_payload_span_offsets(
+        payload,
+        source_text=source_text,
+        require_unique_quote=True,
+    )
+    return repaired_payload, reason
 
 
 def _persist_extractor_audit(

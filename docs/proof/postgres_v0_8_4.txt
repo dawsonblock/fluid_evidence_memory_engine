@@ -1,0 +1,23 @@
+FEME v0.8.4 Postgres proof
+
+Date:
+2026-05-25
+
+Status:
+External proof capture required where Docker + psycopg are available.
+
+Expected command:
+docker compose --profile postgres up -d postgres
+export FEME_DB_BACKEND=postgres
+export FEME_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+export FEME_TEST_POSTGRES_DSN="postgresql://feme:feme_dev_password@localhost:5432/feme"
+PYTHONPATH=$PWD:src pytest -q tests/test_v07_postgres_live_integration.py tests/test_postgres_load_smoke.py tests/test_postgres_concurrency_smoke.py
+
+Current local note:
+Live Postgres tests were not executed in this run because DSN/credentials were not configured for this environment.
+
+pytest result placeholder:
+pending external run; expected output contains passed/failed counts once executed.
+
+Known limitations:
+This proves Docker-backed integration, load, and concurrency smoke tests for the included suite. It does not prove high-scale production behavior.

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..spans import validate_span
+
 _VALID_EVIDENCE_KINDS = {"direct", "inference", "summary", "unknown"}
 
 CLAIM_EXTRACTION_SCHEMA_VERSION = "claim-extraction-v1"
@@ -111,7 +113,7 @@ def validate_extraction_payload(
         if char_start < 0:
             return False, f"claim[{idx}]_support_char_start_negative"
         if char_end <= char_start:
-            return False, f"claim[{idx}]_support_char_end_not_after_start"
+            return False, f"claim[{idx}]_zero_length_span"
 
         # Validate optional token span coherence (both or neither)
         has_token_start = "support_token_start" in entry
@@ -167,10 +169,11 @@ def validate_extraction_payload(
 
         # Validate quote aligns with source_text when provided
         if source_text is not None:
+            if char_end > len(source_text):
+                return False, f"claim[{idx}]_span_out_of_bounds"
             sqt = entry.get("support_quote_text")
             if sqt is not None and isinstance(sqt, str):
-                extracted = source_text[char_start:char_end]
-                if extracted != sqt:
+                if not validate_span(source_text, char_start, char_end, sqt):
                     return False, f"claim[{idx}]_quote_mismatch"
 
     return True, "ok"

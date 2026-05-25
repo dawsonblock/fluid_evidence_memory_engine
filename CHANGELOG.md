@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.4 — Extraction Span Accuracy Upgrade
+
+- Improved support-span extraction accuracy for claim candidates.
+- Added extraction span debugging output.
+- Added span-alignment fixtures and regression tests.
+- Preserved strict extractor fail-closed behavior.
+- Preserved public/internal review-boundary behavior.
+- Preserved retrieval quote-hit scoring.
+- Preserved release-builder and release-validator behavior from v0.8.3.
+
 ## v0.8.3 — Release Builder Finalization
 
 - Fixed `build-release-zip.sh` cleanup logic so it no longer combines `find -prune` with `-delete`.

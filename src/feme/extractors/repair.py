@@ -11,6 +11,8 @@ import json
 import re
 from typing import TYPE_CHECKING, Any
 
+from ..spans import find_exact_quote_span, validate_span
+
 if TYPE_CHECKING:
     from feme.extractors.base import ExtractorProvider
 
@@ -74,6 +76,62 @@ def attempt_repair(
                 return result
 
     return None
+
+
+def repair_payload_span_offsets(
+    payload: dict[str, Any],
+    *,
+    source_text: str,
+    require_unique_quote: bool,
+) -> tuple[dict[str, Any], bool, str | None]:
+    """Deterministically repair support char offsets from support_quote_text.
+
+    Returns `(payload, repaired_any, error_reason)` where `error_reason` is set
+    only when a repair was required but could not be performed deterministically.
+    """
+    claims = payload.get("claims")
+    claims_key = "claims"
+    if not isinstance(claims, list):
+        claims = payload.get("candidates")
+        claims_key = "candidates"
+    if not isinstance(claims, list):
+        return payload, False, None
+
+    repaired_any = False
+    for idx, claim in enumerate(claims):
+        if not isinstance(claim, dict):
+            continue
+        quote = claim.get("support_quote_text")
+        start = claim.get("support_char_start")
+        end = claim.get("support_char_end")
+
+        if not isinstance(quote, str) or not quote:
+            continue
+        if not isinstance(start, int) or not isinstance(end, int):
+            continue
+        if validate_span(source_text, start, end, quote):
+            continue
+
+        quote_count = source_text.count(quote)
+        if require_unique_quote and quote_count == 0:
+            return payload, repaired_any, f"claim[{idx}]_span_repair_failed"
+        if require_unique_quote and quote_count > 1:
+            return payload, repaired_any, f"claim[{idx}]_span_repair_ambiguous"
+
+        match = find_exact_quote_span(source_text, quote, occurrence_index=0)
+        if match is None:
+            return payload, repaired_any, f"claim[{idx}]_span_repair_failed"
+
+        claim["support_char_start"] = match.char_start
+        claim["support_char_end"] = match.char_end
+        evidence_span = claim.get("evidence_span")
+        if isinstance(evidence_span, dict):
+            evidence_span["char_start"] = match.char_start
+            evidence_span["char_end"] = match.char_end
+        repaired_any = True
+
+    payload[claims_key] = claims
+    return payload, repaired_any, None
 
 
 # ---------------------------------------------------------------------------
