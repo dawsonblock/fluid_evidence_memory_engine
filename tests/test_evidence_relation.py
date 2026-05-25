@@ -117,7 +117,7 @@ def test_custom_evidence_relation_persisted(tmp_path: Path):
     assert len(links) > 0
     for link in links:
         assert link["evidence_relation"] == "corroborates_fact"
-        assert link["evidence_kind"] == "unknown"
+        assert link["evidence_kind"] == "direct"
 
 
 def test_evidence_kind_persisted_separately_from_support_relation(tmp_path: Path):

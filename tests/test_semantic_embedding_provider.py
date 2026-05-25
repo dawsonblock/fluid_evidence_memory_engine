@@ -26,7 +26,7 @@ def test_provider_name():
 
 def test_provider_version():
     p = SentenceTransformersEmbeddingProvider()
-    assert p.version == "0.8.4"
+    assert p.version == "0.8.5"
 
 
 def test_default_model_name():

@@ -9,7 +9,7 @@ from .utils import now_iso
 
 ROOT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "sqlite_schema.sql"
 PACKAGE_SCHEMA_PATH = Path(__file__).resolve().parent / "sqlite_schema.sql"
-SCHEMA_VERSION = "0.8.4"
+SCHEMA_VERSION = "0.8.5"
 MIGRATION_STATUS_COMPLETE = "complete"
 MIGRATION_STATUS_FAILED = "failed"
 MIGRATION_STATUS_INCOMPLETE = "incomplete"

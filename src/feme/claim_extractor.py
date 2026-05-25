@@ -734,8 +734,14 @@ def _sentence_to_candidate(
     patterns = [
         (r"(.+?)\s+configured\s+to\s+use\s+(.+)", "configured_to_use"),
         (r"(.+?)\s+uses?\s+(.+?)\s+as\s+(.+)", "uses_as"),
+        (r"(.+?)\s+stores?\s+(.+?)\s+in\s+(.+)", "stores_in"),
+        (r"(.+?)\s+links?\s+(.+?)\s+to\s+(.+)", "links_to"),
         (r"(.+?)\s+should\s+use\s+(.+)", "should_use"),
         (r"(.+?)\s+must\s+use\s+(.+)", "must_use"),
+        (r"(.+?)\s+no\s+longer\s+uses?\s+(.+)", "no_longer_uses"),
+        (r"(.+?)\s+was\s+removed\s+from\s+(.+)", "removed_from"),
+        (r"(.+?)\s+was\s+approved\s+by\s+(.+)", "approved_by"),
+        (r"(.+?)\s+was\s+denied\s+by\s+(.+)", "denied_by"),
         (
             r"(.+?)\s+(should|must)\s+"
             r"(use|keep|store|link|require|replace|contradict|configure|build)s?\s+(.+)",
@@ -760,6 +766,12 @@ def _sentence_to_candidate(
             if pred == "uses_as":
                 subject = groups[0].strip()
                 obj = f"{groups[1].strip()} as {groups[2].strip()}"
+            elif pred == "stores_in":
+                subject = groups[0].strip()
+                obj = f"{groups[1].strip()} in {groups[2].strip()}"
+            elif pred == "links_to":
+                subject = groups[0].strip()
+                obj = f"{groups[1].strip()} to {groups[2].strip()}"
             elif pred == "modal_action":
                 subject = groups[0].strip()
                 predicate = f"{groups[1].lower()}_{groups[2].lower()}"
@@ -785,6 +797,18 @@ def _sentence_to_candidate(
         memory_type = MemoryType.inference
     if any(m in lowered for m in CORRECTION_MARKERS):
         memory_type = MemoryType.correction
+
+    support_relation = "supports"
+    evidence_kind = "direct"
+    if lowered.startswith("in summary") or lowered.startswith("summary:"):
+        support_relation = "summarizes"
+        evidence_kind = "summary"
+    elif memory_type == MemoryType.inference:
+        support_relation = "inferred_from"
+        evidence_kind = "inference"
+    elif "contradict" in lowered or predicate == "contradicts":
+        support_relation = "contradicts"
+        evidence_kind = "direct"
 
     source_quality = float(chunk.get("source_quality", 0.5))
     privacy_sensitivity = policy.privacy_sensitivity_for_text(sentence)
@@ -845,8 +869,8 @@ def _sentence_to_candidate(
         support_token_start=support_token_start_abs,
         support_token_end=support_token_end_abs,
         support_quote_text=sentence,
-        support_relation="supports",
-        evidence_kind="unknown",
+        support_relation=support_relation,
+        evidence_kind=evidence_kind,
         metadata={
             "extractor": "heuristic-v2",
             "extractor_provider": extractor_provider,
@@ -858,9 +882,9 @@ def _sentence_to_candidate(
             "support_token_start": support_token_start_abs,
             "support_token_end": support_token_end_abs,
             "support_quote_text": sentence,
-            "support_relation": "supports",
-            "evidence_kind": "unknown",
-            "evidence_relation": "supports",
+            "support_relation": support_relation,
+            "evidence_kind": evidence_kind,
+            "evidence_relation": support_relation,
         },
     )
 

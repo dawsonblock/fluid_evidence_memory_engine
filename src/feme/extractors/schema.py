@@ -13,6 +13,14 @@ from typing import Any
 from ..spans import validate_span
 
 _VALID_EVIDENCE_KINDS = {"direct", "inference", "summary", "unknown"}
+_VALID_SUPPORT_RELATIONS = {
+    "supports",
+    "contradicts",
+    "summarizes",
+    "mentions",
+    "inferred_from",
+    "unknown",
+}
 
 CLAIM_EXTRACTION_SCHEMA_VERSION = "claim-extraction-v1"
 
@@ -164,7 +172,10 @@ def validate_extraction_payload(
 
         support_relation = entry.get("support_relation")
         if support_relation is not None:
-            if not isinstance(support_relation, str) or not support_relation.strip():
+            if (
+                not isinstance(support_relation, str)
+                or support_relation not in _VALID_SUPPORT_RELATIONS
+            ):
                 return False, f"claim[{idx}]_support_relation_invalid"
 
         # Validate quote aligns with source_text when provided

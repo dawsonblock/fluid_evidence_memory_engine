@@ -858,7 +858,7 @@ def eval_extraction(
         "heuristic",
         help="Extractor mode: heuristic, json_with_fallback, or json_strict",
     ),
-    extractor_provider: str = typer.Option(
+    extractor_provider: Optional[str] = typer.Option(
         None,
         help="Optional extractor provider for structured modes",
     ),
@@ -869,19 +869,37 @@ def eval_extraction(
             "Include per-case expected/actual extraction details in the " "JSON output"
         ),
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Include detailed misses and false-positive diagnostics per case",
+    ),
     debug_spans: bool = typer.Option(
         False,
         "--debug-spans",
         help="Include per-case expected vs actual span diagnostics for mismatches",
     ),
+    write_report: Optional[str] = typer.Option(
+        None,
+        "--write-report",
+        help="Write full extraction evaluation JSON report to this path",
+    ),
 ):
+    if not isinstance(extractor_provider, str):
+        extractor_provider = None
+    if not isinstance(write_report, str):
+        write_report = None
     result = evaluate_extraction_fixture(
         fixture,
         extractor_mode=extractor_mode,
         extractor_provider=extractor_provider,
         verbose=verbose,
+        debug=debug,
         debug_spans=debug_spans,
     )
+    if isinstance(write_report, str):
+        Path(write_report).parent.mkdir(parents=True, exist_ok=True)
+        Path(write_report).write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
 
 

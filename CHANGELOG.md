@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.8.5 — Structured Extractor Quality Repair
+
+- Expanded extraction fixtures beyond project_decisions.
+- Added no-claim/noise extraction cases.
+- Added multi-claim extraction cases.
+- Added legal-style extraction cases.
+- Added mocked LLM JSON extraction cases.
+- Added false-positive and direct/inference/summary evaluation metrics.
+- Preserved v0.8.4 support-span exactness.
+- Preserved strict extractor fail-closed behavior.
+- Preserved release-builder and release-validator behavior.
+- Preserved runtime-health migration completeness reporting.
+
 ## v0.8.4 — Extraction Span Accuracy Upgrade
 
 - Improved support-span extraction accuracy for claim candidates.

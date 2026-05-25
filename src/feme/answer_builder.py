@@ -74,19 +74,42 @@ class GroundedAnswerBuilder:
             )
         # Check for inference/summary evidence_relation in supporting evidence
         saw_inference = False
+        saw_summary = False
+        saw_contradiction = False
+        saw_unknown_kind = False
         for item in packet.included:
             if item.get("kind") != "claim":
                 continue
             for ev in item.get("supporting_evidence") or []:
-                evidence_kind = ev.get("evidence_kind") or ev.get("evidence_relation")
-                if evidence_kind in {"inference", "summary"}:
+                evidence_kind = ev.get("evidence_kind")
+                support_relation = ev.get("support_relation") or ev.get(
+                    "evidence_relation"
+                )
+                if evidence_kind == "inference":
                     saw_inference = True
-                    break
-            if saw_inference:
+                if evidence_kind == "summary":
+                    saw_summary = True
+                if evidence_kind in {None, "", "unknown"}:
+                    saw_unknown_kind = True
+                if support_relation == "contradicts":
+                    saw_contradiction = True
+            if saw_inference and saw_summary and saw_contradiction and saw_unknown_kind:
                 break
         if saw_inference:
             warnings.append(
                 "Includes inference-derived claims; verify source spans before external use."
+            )
+        if saw_summary:
+            warnings.append(
+                "Includes summary-derived claims; verify against direct supporting evidence before publication."
+            )
+        if saw_contradiction:
+            warnings.append(
+                "Includes contradictory support relations; resolve conflict status before publication."
+            )
+        if saw_unknown_kind:
+            warnings.append(
+                "Includes claims with unknown evidence kind; treat as unverified until reviewed."
             )
         risk_summary = dict(packet.metadata.get("risk_summary", {}))
         if saw_inference and risk_summary.get("risk") == "low":
